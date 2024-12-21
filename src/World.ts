@@ -19,6 +19,7 @@ export class World implements IWorld {
     private _cameraPoint: IPoint = new Point2D(0, 0);
     private _torchRadius: number = config.TORCH_RADIUS;
     private _debug = false;
+    private crowdednessFactor = 5;
 
     get debug(): boolean {
         return this._debug;
@@ -111,11 +112,13 @@ export class World implements IWorld {
         // Calculate chunk boundaries
         const chunkStartX = chunkPoint.x * this.CHUNK_SIZE;
         const chunkStartY = chunkPoint.y * this.CHUNK_SIZE;
+        const chunkCenter = new Point2D(chunkStartX + this.CHUNK_SIZE / 2, chunkStartY + this.CHUNK_SIZE / 2);
         const newWalls: IWall[] = [];
         const newEnemies: IEnemy[] = [];
 
-        // Generate 2-3 random walls in this chunk
-        const numWalls = Math.floor(Math.random() * 20) + 20; // 2-3 walls
+        // Generate random walls in this chunk, corresponding to the crowdedness factor
+        const numWalls = Math.floor(Math.random() * this.crowdednessFactor) + this.crowdednessFactor;
+        const neighboringWalls = this.getNeighboringObjects<IWall>(chunkCenter, this._walls)
 
         for (let i = 0; i < numWalls; i++) {
             // Randomly decide wall orientation
@@ -134,9 +137,10 @@ export class World implements IWorld {
                 height = 30;
             }
 
+            const newNeighbors = neighboringWalls.concat(newWalls);
             // Check if the wall overlaps with existing walls
             let overlaps = false;
-            for (const wall of this.getNeighboringObjects<IWall>(new Point2D(x, y), this._walls)) {
+            for (const wall of newNeighbors) {
                 const rect1 = wall.getCollisionRect();
                 const rect2 = {
                     left: x - width/2,
@@ -162,7 +166,7 @@ export class World implements IWorld {
                 this._walls.push(wall);
 
                 // Create enemy for each wall
-                const enemy = new this._Enemy(this, wall);
+                const enemy = new this._Enemy(this, wall, neighboringWalls);
                 newEnemies.push(enemy);
                 this._enemies.push(enemy);
             }

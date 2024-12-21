@@ -25,7 +25,7 @@ export class Enemy extends ScreenObject implements IEnemy {
         return this._lives;
     }
 
-    constructor(private world: IWorld, private wall: IWall) {
+    constructor(private world: IWorld, private wall: IWall, private neighboringWalls: IWall[]) {
         const size = config.ENEMY_SIZE;
         const wallSide = Math.random() < 0.5 ? 1 : -1;
 
@@ -34,9 +34,25 @@ export class Enemy extends ScreenObject implements IEnemy {
         if (wall.orientation === 'vertical') {
             x = wall.x - wallSide * (wall.width / 2 + size / 2);
             y = wall.y + Math.random() * wall.height;
+            let dy = size;
+            let direction = 1;
+            // Check if there is a wall in the way
+            while (y >= wall.y + size && y < wall.y + wall.height && neighboringWalls.some(wall => wall.checkCollision(x - size/2, y - size/2, size, size))) {
+                y += direction * dy;
+                dy += size;
+                direction *= -1;
+            }
         } else {
             x = wall.x + Math.random() * wall.width;
             y = wall.y - wallSide * (wall.height / 2 + size / 2);
+            let dx = size;
+            let direction = 1;
+            // Check if there is a wall in the way
+            while (x >= wall.x + size && x < wall.x + wall.width && neighboringWalls.some(wall => wall.checkCollision(x - size/2, y - size/2, size, size))) {
+                x += direction * dx;
+                dx += size;
+                direction *= -1;
+            }
         }
 
         super(new Point2D(x, y), size, size);

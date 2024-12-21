@@ -35,7 +35,7 @@ module.exports = {
         filename: '[name].[contenthash].js',
         path: path.resolve(__dirname, 'docs'),
         clean: true,
-        publicPath: process.env.NODE_ENV === 'development' ? '/' : '/dungeon-game/',
+        publicPath: process.env.NODE_ENV === 'production' ? '/dungeon-game/' : '/',
     },
     plugins: [
         new HtmlWebpackPlugin({
