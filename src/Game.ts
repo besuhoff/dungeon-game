@@ -4,6 +4,7 @@ import { Bonus } from './entities/Bonus';
 import { Enemy } from './entities/Enemy';
 import { Player } from './entities/Player';
 import { Wall } from './entities/Wall';
+import { AudioManager } from './utils/AudioManager';
 import { loadImage } from './utils/loadImage';
 import { World } from './World';
 
@@ -27,12 +28,26 @@ export class Game {
     }
 
     public static async loadResources(): Promise<void> {
+        const audioManager = AudioManager.getInstance();
+
         await Promise.all([
             loadImage(config.TEXTURES.FLOOR),
             loadImage(config.TEXTURES.PLAYER),
             loadImage(config.TEXTURES.ENEMY),
             loadImage(config.TEXTURES.WALL),
+            audioManager.loadSound(config.SOUNDS.PLAYER_HURT),
+            audioManager.loadSound(config.SOUNDS.ENEMY_HURT),
+            audioManager.loadSound(config.SOUNDS.TORCH),
         ]);
+
+        // Load non-critical resources asynchronously
+        audioManager.loadSound(config.SOUNDS.PLAYER_BULLET_RECHARGE);
+        audioManager.loadSound(config.SOUNDS.BONUS_PICKUP);
+        audioManager.loadSound(config.SOUNDS.GAME_OVER);
+        audioManager.loadSound(config.SOUNDS.BULLET);
+        loadImage(config.TEXTURES.ENEMY_BLOOD);
+        loadImage(config.TEXTURES.AID_KIT);
+        loadImage(config.TEXTURES.GOGGLES);
     }
 
     private setupEventListeners(): void {
