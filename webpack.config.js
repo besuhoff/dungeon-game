@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const { env } = require('process');
 
 module.exports = {
     entry: './src/main.ts',
@@ -31,14 +32,17 @@ module.exports = {
         extensions: ['.tsx', '.ts', '.js'],
     },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].[contenthash].js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/',
+        publicPath: process.env.NODE_ENV === 'development' ? '/' : '/dungeon-game/',
     },
     plugins: [
         new HtmlWebpackPlugin({
-            template: 'src/index.html',
+            template: './src/index.html',
+            filename: 'index.html',
+            inject: 'body',
+            hash: true,
         }),
         new CopyWebpackPlugin({
             patterns: [
