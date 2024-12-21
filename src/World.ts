@@ -118,7 +118,8 @@ export class World implements IWorld {
 
         // Generate random walls in this chunk, corresponding to the crowdedness factor
         const numWalls = Math.floor(Math.random() * this.crowdednessFactor) + this.crowdednessFactor;
-        const neighboringWalls = this.getNeighboringObjects<IWall>(chunkCenter, this._walls)
+        const neighboringWalls = this.getNeighboringObjects<IWall>(chunkCenter, this._walls);
+        const safePaddingAroundPlayer = this.torchRadius + 40;
 
         for (let i = 0; i < numWalls; i++) {
             // Randomly decide wall orientation
@@ -162,6 +163,11 @@ export class World implements IWorld {
 
             if (!overlaps) {
                 const wall = new this._Wall(this, new Point2D(x, y), width, height, orientation);
+
+                if (wall.checkCollision(this._player.x - safePaddingAroundPlayer, this._player.y - safePaddingAroundPlayer, safePaddingAroundPlayer * 2, safePaddingAroundPlayer * 2)) {
+                    continue;
+                }
+
                 newWalls.push(wall);
                 this._walls.push(wall);
 
