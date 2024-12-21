@@ -132,6 +132,6 @@ export interface IEnemy extends IScreenObject, IDrawable, IUpdatable, IDamageabl
 }
 
 export interface IEnemyFactory {
-    new (world: IWorld, wall: IWall): IEnemy;
+    new (world: IWorld, wall: IWall, neighboringWalls: IWall[]): IEnemy;
 }
 
