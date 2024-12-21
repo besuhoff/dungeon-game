@@ -83,6 +83,8 @@ export interface IWorld {
 export interface IWall extends IScreenObject, IDrawable {
     orientation: 'vertical' | 'horizontal';
     getLeftTopCorner(): IPoint;
+    attachEnemy(enemy: IEnemy): void;
+    enemy: IEnemy | null;
 }
 
 export interface IWallFactory {
@@ -118,6 +120,7 @@ export interface IPlayer extends IScreenObject, IDrawable, IUpdatable, IDamageab
     drawUI(ctx: CanvasRenderingContext2D): void;
     getTorchPoint(): IPoint;
     getGunPoint(): IPoint;
+    rotateTo(angle: number): void;
     money: number;
     kills: number;
     bulletsLeft: number;

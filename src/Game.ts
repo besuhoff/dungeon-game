@@ -10,11 +10,11 @@ import { World } from './World';
 
 export class Game {
     private canvas: HTMLCanvasElement;
-    private fontName: string = config.FONT_NAME;
     private ctx: CanvasRenderingContext2D;
     private lastTime: number = 0;
     private world: World;
     private activeKeys: Set<string> = new Set();
+    private dt: number = 0;
 
     constructor() {
         this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -52,12 +52,12 @@ export class Game {
 
     private setupEventListeners(): void {
         window.addEventListener('keydown', (e) => {
-            this.activeKeys.add(e.key);
+            this.activeKeys.add(e.code);
             this.handleKeyDown(e);
         });
         
         window.addEventListener('keyup', (e) => {
-            this.activeKeys.delete(e.key);
+            this.activeKeys.delete(e.code);
         });
 
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -65,13 +65,13 @@ export class Game {
     }
 
     private handleKeyDown(e: KeyboardEvent): void {
-        if (e.key === 'p') {
+        if (e.code === 'KeyP') {
             this.world.togglePause();
         }
-        if (e.key === 'F3') {
+        if (e.code === 'F3') {
             this.world.toggleDebug();
         }
-        if (e.key === 'r' || e.key === 'R') {
+        if (e.code === 'KeyR') {
             this.world.restart();
         }
     }
@@ -80,15 +80,13 @@ export class Game {
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        // Mouse position handling will be used for player rotation
+        // Rotate player to face mouse
+        this.world.player.rotateTo(270 + Math.atan2(y - rect.height / 2, x - rect.width / 2) * 180 / Math.PI);
     }
 
     private handleMouseDown(e: MouseEvent): void {
         if (e.button === 0) { // Left click
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            // Shooting will be handled here
+            this.world.player.shoot(this.dt);
         }
     }
 
@@ -98,6 +96,7 @@ export class Game {
 
     private gameLoop(timestamp: number): void {
         const dt = (timestamp - this.lastTime) / 1000;
+        this.dt = dt;
         this.lastTime = timestamp;
 
         this.world.handleInput(this.activeKeys, dt);

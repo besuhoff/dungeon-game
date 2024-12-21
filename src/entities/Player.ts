@@ -174,6 +174,10 @@ export class Player extends ScreenObject implements IPlayer {
         this._rotation = (this._rotation - angleChange * this._rotationSpeed) % 360;
     }
 
+    rotateTo(angle: number): void {
+        this._rotation = angle;
+    }
+
     takeDamage(amount: number): void {
         if (this._invulnerableTimer <= 0) {
             this._lives -= amount;
@@ -322,7 +326,7 @@ export class Player extends ScreenObject implements IPlayer {
         }
 
         // Handle shooting
-        if (keys.has(' ')) {
+        if (keys.has('Space')) {
             this.shoot(dt);
         }
     }

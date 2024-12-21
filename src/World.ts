@@ -164,13 +164,17 @@ export class World implements IWorld {
                 const wall = new this._Wall(this, new Point2D(x, y), width, height, orientation);
                 newWalls.push(wall);
                 this._walls.push(wall);
-
-                // Create enemy for each wall
-                const enemy = new this._Enemy(this, wall, neighboringWalls);
-                newEnemies.push(enemy);
-                this._enemies.push(enemy);
             }
         }
+
+        const newNeighbors = neighboringWalls.concat(newWalls);
+
+        newWalls.forEach(wall => {
+            // Create enemy for each wall
+            const enemy = new this._Enemy(this, wall, newNeighbors);
+            newEnemies.push(enemy);
+            this._enemies.push(enemy); 
+        });
 
         // Store chunk data
         this.chunks.set(chunkKey, {
@@ -328,6 +332,7 @@ export class World implements IWorld {
     restart(): void {
         this._gameOver = false;
         this._enemies = [];
+        this._walls = [];
         this._bonuses = [];
         this._player = new this._Player(this, new Point2D(0, 0));
         this.chunks.clear();

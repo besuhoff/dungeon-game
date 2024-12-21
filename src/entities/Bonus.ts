@@ -37,12 +37,18 @@ export class Bonus extends ScreenObject implements IBonus {
             return;
         }
 
-        const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
+        const player = this.world.player;
+        const distance = this.getPosition().distanceTo(player.getPosition());
+        const shouldDraw = (distance <= this.world.torchRadius + this.width || player.nightVisionTimer > 0) && !this.world.gameOver;
+        
+        if (shouldDraw) {
+            const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
 
-        ctx.save();
-        ctx.translate(screenPoint.x, screenPoint.y);
-        ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
-        ctx.restore();
+            ctx.save();
+            ctx.translate(screenPoint.x, screenPoint.y);
+            ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
+            ctx.restore();
+        }
     }
 
     update(dt: number): void {

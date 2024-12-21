@@ -1,10 +1,11 @@
 import { ScreenObject } from './ScreenObject';
 import * as config from '../config';
-import { IPoint, IWall, IWorld } from '../types';
+import { IEnemy, IPoint, IWall, IWorld } from '../types';
 import { loadImage } from '../utils/loadImage';
 
 export class Wall extends ScreenObject implements IWall {
     private image: HTMLImageElement | null = null;
+    private _enemy: IEnemy | null = null;
 
     constructor(private world: IWorld, point: IPoint, width: number, height: number, private _orientation: 'vertical' | 'horizontal') {
         super(point, width, height);
@@ -12,6 +13,14 @@ export class Wall extends ScreenObject implements IWall {
         loadImage(config.TEXTURES.WALL).then(img => {
             this.image = img;
         });
+    }
+
+    attachEnemy(enemy: IEnemy): void {
+        this._enemy = enemy;
+    }
+
+    get enemy(): IEnemy | null {
+        return this._enemy;
     }
 
     get orientation(): 'vertical' | 'horizontal' {
