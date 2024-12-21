@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Distressed&family=Texturina:ital,opsz,wght@0,12..72,100..900;1,12..72,100..900&display=swap" rel="stylesheet">
+
+    <title>Dungeon Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: black;
+            font-family: "Texturina", serif;
+        }
+
+        h1 {
+            font-family: "Rubik Distressed", sans-serif;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 40px;
+        }
+
+        h1, h2, h3, h4, h5, h6, p {
+            margin: 0;
+        }
+
+        button {
+            padding: 10px 20px 14px;
+            font: inherit;
+            font-size: 18px;
+            line-height: 18px;
+            background-color: #ff9900;
+            color: #7e4c00;
+            border: none;
+            border-radius: 1000px;
+            cursor: pointer;
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes loading {
+            from {
+                opacity: 0
+            }
+
+            to {
+                opacity: 1
+            }
+        }
+
+        #loader {
+            animation: loading 0.8s ease-in-out infinite alternate;
+        }
+
+        #loginButton {
+            display: none;
+        }
+
+        #gameScreen {
+            background: #000;
+            position: relative; 
+            width: min(100vw, 133vh);
+            height: min(100vh, 75vw);
+            display: none;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            row-gap: 20px;
+            width: 100%;
+            height: 100%;
+            color: #fff;
+        }
+
+        .logo {
+            margin-bottom: 20px;
+        }
+
+        #leaderboardScreen {
+            display: none;
+        }
+
+        #leaderboard {
+            display: none;
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 153, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        .leaderboard-item .rank {
+            color: #ff9900;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .leaderboard-item .score {
+            color: #ff9900;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginScreen" class="screen">
+        <img class="logo" src="/favicon.png" alt="" width="100" />
+        <h1>Dungeon Game</h1>
+        <p id="loader">Loading...</p>
+        <button id="loginButton">Login with Google</button>
+    </div>
+    <div id="leaderboardScreen" class="screen">
+        <img class="logo" src="/favicon.png" alt="" width="100" />
+        <h1>Dungeon Game</h1>
+        <p>Welcome, <span id="username"></span>!</p>
+        <div id="leaderboard">
+            <h2>Leaderboard</h2>
+            <ul class="leaderboard-list" id="leaderboardList">
+                <!-- Leaderboard entries will be added here dynamically -->
+            </ul>
+        </div>
+        <button id="startGameButton">Start Game</button>
+    </div>
+    <div id="gameScreen">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+</body>
+</html>
