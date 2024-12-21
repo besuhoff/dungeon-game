@@ -5,7 +5,7 @@ import { Point2D } from './utils/Point2D';
 const ASSETS_FOLDER = 'assets';
 
 export const LOGIN_BUTTON_TEXTURE = `${ASSETS_FOLDER}/login-button.png`;
-export const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://dungeon-game-backend.onrender.com/api/v1' : 'http://localhost:8000/api/v1';
+export const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://dungeon-game-api.onrender.com/api/v1' : 'http://localhost:8000/api/v1';
 
 // Display
 export const SCREEN_WIDTH = 800;
