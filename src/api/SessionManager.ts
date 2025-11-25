@@ -4,10 +4,8 @@ import {
   UpdateSessionRequest,
   AddSessionChunksRequest,
   SessionChunk,
-  SessionPlayer,
 } from "../types/session";
 import { HttpClient } from "./HttpClient";
-import { v4 as uuidv4 } from "uuid";
 import * as config from "../config";
 import { SocketService } from "./SocketService";
 import { IBullet } from "../types/screen-objects/IBullet";
@@ -44,8 +42,11 @@ export class SessionManager {
     return SessionManager.instance;
   }
 
-  public async startSession(): Promise<Session> {
-    const sessionName = uuidv4();
+  public async listSessions(): Promise<Session[]> {
+    return await HttpClient.get<Session[]>("/sessions");
+  }
+
+  public async startSession(sessionName: string): Promise<Session> {
     const session = await HttpClient.post<Session>("/sessions", {
       name: sessionName,
       health: config.PLAYER_LIVES,

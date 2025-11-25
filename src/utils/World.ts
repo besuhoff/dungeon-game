@@ -723,9 +723,19 @@ export class World implements IWorld {
         config.SCREEN_HEIGHT - 94
       );
       ctx.fillText(
-        `I am a host: ${this._multiplayerMode === "host" ? "Yes" : "No"}`,
+        `Host: ${this._sessionManager.getCurrentSession()?.host.username}`,
         10,
         config.SCREEN_HEIGHT - 108
+      );
+      ctx.fillText(
+        `Session ID: ${this._sessionManager.getCurrentSession()?._id}`,
+        10,
+        config.SCREEN_HEIGHT - 122
+      );
+      ctx.fillText(
+        `Session: ${this._sessionManager.getCurrentSession()?.name}`,
+        10,
+        config.SCREEN_HEIGHT - 136
       );
     }
   }

@@ -145,26 +145,8 @@ export class Game {
     }
   }
 
-  public async start(): Promise<void> {
-    let session: Session | null = null;
-    try {
-      const sessionId = this._authManager.getUserData()?.current_session;
-      if (sessionId) {
-        session = await this._sessionManager.joinSession(sessionId);
-        const chunks = session?.world_map;
-      } else {
-        session = await this._sessionManager.startSession();
-      }
-    } catch (error) {
-      if (
-        typeof error === "object" &&
-        error &&
-        "code" in error &&
-        error.code === 404
-      ) {
-        session = await this._sessionManager.startSession();
-      }
-    }
+  public async start(session: Session): Promise<void> {
+    const chunks = session?.world_map;
 
     if (session) {
       const userData = this._authManager.getUserData();
