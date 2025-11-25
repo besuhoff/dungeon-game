@@ -1,21 +1,21 @@
-import { IScreenObject, IPoint } from "../types";
+import { IScreenObject } from "../types/screen-objects/IScreenObject";
+import { IPoint } from "../types/geometry/IPoint";
+import { v4 as uuidv4 } from 'uuid';
 
 export class ScreenObject implements IScreenObject {
 
-    private static _id: number = 0;
-    private _id: number;
+    private static _objectNumber: number = 0;
 
-    static get id(): number {
-        return ScreenObject._id;
+    static get objectCount(): number {
+        return ScreenObject._objectNumber;
     }
 
-    get id(): number {
+    get id(): string {
         return this._id;
     }
 
-    constructor(protected _point: IPoint, protected _width: number, protected _height: number) {
-        ScreenObject._id++;
-        this._id = ScreenObject._id;
+    constructor(protected _point: IPoint, protected _width: number, protected _height: number, protected _id: string = uuidv4()) {
+        ScreenObject._objectNumber++;
     }
 
     get x(): number {

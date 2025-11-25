@@ -1,25 +1,42 @@
-import { IPoint } from "../types";
+import { IPoint } from "../../types/geometry/IPoint";
 
 export class Point2D implements IPoint {
-    x: number;
-    y: number;
+    constructor(private _x: number, private _y: number) {
+    }
 
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
+    public get x(): number {
+        return this._x;
+    }
+
+    public get y(): number {
+        return this._y;
     }
 
     toString(): string {
-        return `(${this.x.toFixed(2)}, ${this.y.toFixed(2)})`;
+        return `(${this._x.toFixed(2)}, ${this._y.toFixed(2)})`;
     }
 
-    clone(): IPoint {
-        return new Point2D(this.x, this.y);
+    equals(point: IPoint): boolean {
+        return this._x === point.x && this._y === point.y;
+    }
+
+    clone(): Point2D {
+        return new Point2D(this._x, this._y);
+    }
+
+    setTo(x: number, y: number): Point2D {
+        this._x = x;
+        this._y = y;
+        return this;
+    }
+
+    setToPointCoordinates(point: Point2D): Point2D {
+        return this.setTo(point.x, point.y);
     }
 
     moveBy(dx: number, dy: number): Point2D {
-        this.x += dx;
-        this.y += dy;
+        this._x += dx;
+        this._y += dy;
         return this;
     }
 
@@ -36,7 +53,7 @@ export class Point2D implements IPoint {
     }
 
     invertAgainstPointCoordinates(center: Point2D): Point2D {
-        return this.moveBy(2 * (center.x - this.x), 2 * (center.y - this.y));
+        return this.moveBy(2 * (center.x - this._x), 2 * (center.y - this._y));
     }
 
     invertedAgainstPointCoordinates(center: Point2D): Point2D {
@@ -54,10 +71,10 @@ export class Point2D implements IPoint {
     rotateAroundPointCoordinates(center: Point2D, angle: number): Point2D {
         const cos = Math.cos(angle * Math.PI / 180);
         const sin = Math.sin(angle * Math.PI / 180);
-        const dx = this.x - center.x;
-        const dy = this.y - center.y;
-        this.x = dx * cos - dy * sin + center.x;
-        this.y = dx * sin + dy * cos + center.y;
+        const dx = this._x - center._x;
+        const dy = this._y - center.y;
+        this._x = dx * cos - dy * sin + center._x;
+        this._y = dx * sin + dy * cos + center.y;
         return this;
     }
 
@@ -74,6 +91,6 @@ export class Point2D implements IPoint {
     }
 
     distanceTo(point: IPoint): number {
-        return Math.sqrt((this.x - point.x) ** 2 + (this.y - point.y) ** 2);
+        return Math.sqrt((this._x - point.x) ** 2 + (this.y - point.y) ** 2);
     }
 }

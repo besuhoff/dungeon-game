@@ -1,4 +1,7 @@
-import { IBonus, IWorld, BonusType, IPoint } from "../types";
+import { IBonus } from "../types/screen-objects/IBonus";
+import { BonusType } from "../types/screen-objects/IBonus";
+import { IPoint } from "../types/geometry/IPoint";
+import { IWorld } from "../types/IWorld";
 import { ScreenObject } from "./ScreenObject";
 import { loadImage } from "../utils/loadImage";
 import * as config from '../config';
@@ -8,7 +11,7 @@ export class Bonus extends ScreenObject implements IBonus {
     public type: BonusType;
     private image: HTMLImageElement | null = null;
 
-    constructor(private world: IWorld, point: IPoint, type: BonusType) {
+    constructor(private world: IWorld, point: IPoint, type: BonusType, id?: string) {
         // Load appropriate texture
         let texturePath: string = '';
         let size: number = 0;
@@ -21,7 +24,7 @@ export class Bonus extends ScreenObject implements IBonus {
             size = config.GOGGLES_SIZE;
         }
 
-        super(point, size, size);
+        super(point, size, size, id);
 
         this.type = type;
 
@@ -33,7 +36,15 @@ export class Bonus extends ScreenObject implements IBonus {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        if (!this.image) {
+        if (!this.image || !this.world.player) {
+            return;
+        }
+
+        const player = this.world.player;
+        const distance = this.getPosition().distanceTo(player.getPosition());
+        const shouldDraw = (distance <= this.world.torchRadius + this.width || player.nightVisionTimer > 0) && !this.world.gameOver;
+
+        if (!shouldDraw) {
             return;
         }
 
@@ -48,7 +59,7 @@ export class Bonus extends ScreenObject implements IBonus {
     update(dt: number): void {
         const player = this.world.player;
         
-        if (this.checkCollisionWithObject(player)) {
+        if (player && this.checkCollisionWithObject(player)) {
             AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);
             if (this.type === 'aid_kit') {
                 player.heal(config.AID_KIT_HEAL_AMOUNT);
@@ -56,7 +67,7 @@ export class Bonus extends ScreenObject implements IBonus {
                 player.addNightVision();
             }
 
-            this.world.bonuses.splice(this.world.bonuses.findIndex(bonus => bonus.id === this.id), 1);
+            this.world.removeBonus(this);
         }
     }
 }

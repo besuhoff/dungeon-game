@@ -26,4 +26,8 @@ export class Vector2D {
     static fromAngle(angle: number): Vector2D {
         return new Vector2D(-Math.sin(angle), Math.cos(angle));
     }
+
+    getAngle(): number {
+        return 270 - Math.atan2(this.y, this.x) * 180 / Math.PI;
+    }
 }

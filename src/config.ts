@@ -1,11 +1,12 @@
 import { Assets } from './assets';
-import { BonusType } from './types';
-import { Point2D } from './utils/Point2D';
+import { BonusType } from "./types/screen-objects/IBonus";
+import { Point2D } from './utils/geometry/Point2D';
 
 const ASSETS_FOLDER = 'assets';
 
 export const LOGIN_BUTTON_TEXTURE = `${ASSETS_FOLDER}/login-button.png`;
-export const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://dungeon-game-api.onrender.com/api/v1' : 'http://localhost:8000/api/v1';
+export const API_DOMAIN = process.env.NODE_ENV === 'production' ? 'https://dungeon-game-api.onrender.com' : 'http://localhost:8000';
+export const API_BASE_URL = `${API_DOMAIN}/api/v1`;
 
 // Display
 export const SCREEN_WIDTH = 800;
@@ -17,7 +18,7 @@ export const HEADER_FONT_NAME = 'Rubik Distressed';
 export const TORCH_RADIUS = 200;
 export const NIGHT_VISION_DETECTION_RADIUS = 100;
 export const COLOR_TRANSPARENT = '#00000030';
-export const COLOR_DARK = '#000000F0';
+export const COLOR_DARK = '#000000E6';
 export const COLOR_NIGHT_VISION = '#009600a0';
 export const COLOR_NIGHT_VISION_FADING = '#006000a0';
 
@@ -29,9 +30,9 @@ export const BULLET_SIZE = 8;
 export const PLAYER_SPEED = 300; // Units per second
 export const PLAYER_SIZE = 24;
 export const PLAYER_TEXTURE_SIZE = 64;
-export const PLAYER_TEXTURE_CENTER = Object.freeze(new Point2D(PLAYER_TEXTURE_SIZE / 2 - 1, 26));
-export const PLAYER_GUN_END = Object.freeze(new Point2D(PLAYER_TEXTURE_SIZE / 2 - 10, 56));
-export const PLAYER_TORCH_POINT = Object.freeze(new Point2D(PLAYER_TEXTURE_SIZE / 2 + 7, 47));
+export const PLAYER_TEXTURE_CENTER = new Point2D(PLAYER_TEXTURE_SIZE / 2 - 1, 26);
+export const PLAYER_GUN_END = new Point2D(PLAYER_TEXTURE_SIZE / 2 - 10, 56);
+export const PLAYER_TORCH_POINT = new Point2D(PLAYER_TEXTURE_SIZE / 2 + 7, 47);
 export const PLAYER_LIVES = 10;
 export const PLAYER_INVULNERABILITY_TIME = 1; // Seconds of invulnerability after getting hit
 export const PLAYER_ROTATION_SPEED = 180; // Degrees per second
@@ -46,8 +47,8 @@ export const ENEMY_SPEED = 120; // Units per second
 export const ENEMY_SIZE = 24;
 export const ENEMY_LIVES = 1;
 export const ENEMY_TEXTURE_SIZE = 64;
-export const ENEMY_TEXTURE_CENTER = Object.freeze(new Point2D(PLAYER_TEXTURE_SIZE / 2 - 1, 26));
-export const ENEMY_GUN_END = Object.freeze(new Point2D(ENEMY_TEXTURE_SIZE / 2 - 1, 60));
+export const ENEMY_TEXTURE_CENTER = new Point2D(PLAYER_TEXTURE_SIZE / 2 - 1, 26);
+export const ENEMY_GUN_END = new Point2D(ENEMY_TEXTURE_SIZE / 2 - 1, 60);
 export const ENEMY_BLOOD_TEXTURE_SIZE = 32;
 export const ENEMY_SHOOT_DELAY = 1 // Seconds between shots
 export const ENEMY_BULLET_SPEED = 240; // Units per second
@@ -90,3 +91,16 @@ export const SOUNDS = {
     PLAYER_BULLET_RECHARGE: Assets.playerBulletRechargeSound,
     BONUS_PICKUP: Assets.bonusPickupSound,
 };
+
+export const WEBSOCKET_ACTIONS = {
+    BULLET_CREATED: 'bullet:created',
+    BULLET_REMOVED: 'bullet:destroyed',
+    ENEMY_DESTROYED: 'enemy:destroyed',
+    PLAYER_HIT: 'player:hit',
+    BONUS_CREATED: 'bonus:created',
+    BONUS_DESTROYED: 'bonus:destroyed',
+}
+
+export const WEBSOCKET_GAME_STATE_EVENTS = {
+    CHUNKS_UPDATED: 'chunks:updated',
+}

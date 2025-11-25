@@ -1,14 +1,14 @@
 export interface IAuthManager {
     getAuthUrl(): Promise<string>;
     checkAuthStatus(token: string): Promise<IUserData>;
-    getLeaderboard(): Promise<ILeaderboardEntry[]>;
 }
 
 export interface IUserData {
-    id: string;
+    _id: string;
     username: string;
     email: string;
-    picture?: string;
+    is_active: boolean;
+    current_session: string;
 }
 
 export interface ILeaderboardEntry {

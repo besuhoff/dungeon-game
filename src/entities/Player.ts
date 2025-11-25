@@ -1,9 +1,13 @@
 import { ScreenObject } from './ScreenObject';
 import * as config from '../config';
-import { IBullet, IPlayer, IWorld, IPoint } from '../types';
+import { IPlayer } from "../types/screen-objects/IPlayer";
+import { IBullet } from "../types/screen-objects/IBullet";
+import { IPoint } from "../types/geometry/IPoint";
+import { IWorld } from "../types/IWorld";
 import { Bullet } from './Bullet';
 import { loadImage } from '../utils/loadImage';
 import { AudioManager } from '../utils/AudioManager';
+import { AuthManager } from '../api/AuthManager';
 
 export class Player extends ScreenObject implements IPlayer {
     public nightVisionTimer: number = 0;
@@ -21,7 +25,7 @@ export class Player extends ScreenObject implements IPlayer {
     private _rechargeAccumulator: number = 0;
 
     private _debugData: {
-        collisionHits?: { id: number; total: boolean; x: boolean; y: boolean }[];
+        collisionHits?: { id: string; total: boolean; x: boolean; y: boolean }[];
         coordinates?: {
             dx: number;
             dy: number;
@@ -41,8 +45,14 @@ export class Player extends ScreenObject implements IPlayer {
         return this._bulletsLeft;
     }
 
-    constructor(private world: IWorld, point: IPoint) {
+    get rotation(): number {
+        return this._rotation;
+    }
+
+    constructor(private world: IWorld, point: IPoint, rotation: number = 0) {
         super(point, config.PLAYER_SIZE, config.PLAYER_SIZE);
+
+        this._rotation = rotation;
 
         // Load sounds
         const audioManager = AudioManager.getInstance();
@@ -87,7 +97,8 @@ export class Player extends ScreenObject implements IPlayer {
             this.world,
             bulletPoint,
             this._rotation,
-            false
+            false,
+            AuthManager.getInstance().getUserData()?._id
         );
 
         this._bullets.push(bullet);
@@ -98,14 +109,12 @@ export class Player extends ScreenObject implements IPlayer {
         AudioManager.getInstance().playSound(config.SOUNDS.BULLET);
     }
 
-    move(forward: number): void {
+    private move(forward: number): void {
         if (!this.isAlive()) {
             return;
         }
 
-        const nearbyEnemies = this.world.getNeighboringObjects(this.getPosition(), this.world.enemies.filter((enemy) => enemy.isAlive()));
-        const nearbyWalls = this.world.getNeighboringObjects(this.getPosition(), this.world.walls);
-        const collidableObjects = [...nearbyWalls, ...nearbyEnemies];
+        const collidableObjects = [...this.world.walls, ...this.world.otherPlayers, ...this.world.enemies.filter((enemy) => enemy.isAlive())];
 
         // Convert rotation to radians for math calculations
         const rotationRad = this._rotation * Math.PI / 180;
@@ -123,7 +132,7 @@ export class Player extends ScreenObject implements IPlayer {
         const xCollisionRect = this.getCollisionRect(dx, 0);
         const yCollisionRect = this.getCollisionRect(0, dy);
 
-        const hits: {id: number, total: boolean, x: boolean, y: boolean, toString: () => string}[] = [];
+        const hits: {id: string, total: boolean, x: boolean, y: boolean, toString: () => string}[] = [];
 
         for (const obj of collidableObjects) {
             const hit = { id: obj.id, total: false, x: false, y: false, toString: function () {
@@ -170,7 +179,7 @@ export class Player extends ScreenObject implements IPlayer {
         }
     }
 
-    rotate(angleChange: number): void {
+    private rotate(angleChange: number): void {
         this._rotation = (this._rotation - angleChange * this._rotationSpeed) % 360;
     }
 

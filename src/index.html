@@ -74,6 +74,12 @@
             display: none;
         }
 
+        .error {
+            color: red;
+            display: none;
+            margin: 0;
+        }
+
         #gameScreen {
             background: #000;
             position: relative; 
@@ -140,6 +146,14 @@
         .leaderboard-item .score {
             color: #ff9900;
         }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            row-gap: 5px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -147,7 +161,10 @@
         <img class="logo" src="favicon.png" alt="" width="100" />
         <h1>Dungeon Game</h1>
         <p id="loader">Loading...</p>
-        <button id="loginButton">Login with Google</button>
+        <div class="button-container">
+            <button id="loginButton">Login with Google</button>
+            <p class="error"></p>
+        </div>
     </div>
     <div id="leaderboardScreen" class="screen">
         <img class="logo" src="favicon.png" alt="" width="100" />
@@ -159,7 +176,10 @@
                 <!-- Leaderboard entries will be added here dynamically -->
             </ul>
         </div>
-        <button id="startGameButton">Start Game</button>
+        <div class="button-container">
+            <button id="startGameButton">Start Game</button>
+            <p class="error"></p>
+        </div>
     </div>
     <div id="gameScreen">
         <canvas id="gameCanvas"></canvas>
