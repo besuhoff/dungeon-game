@@ -105,8 +105,8 @@ export class SocketService {
     });
 
     this.socket.on("game_action", (data: any) => {
-      if (this._gameActionHandlers.has(data.type)) {
-        this._gameActionHandlers.get(data.type)?.(data.data);
+      if (this._gameActionHandlers.has(data.action.type)) {
+        this._gameActionHandlers.get(data.action.type)?.(data.action.data);
       }
     });
 
