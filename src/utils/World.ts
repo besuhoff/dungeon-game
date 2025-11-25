@@ -20,6 +20,8 @@ import {
   IOtherPlayer,
   IOtherPlayerFactory,
 } from "../types/screen-objects/IOtherPlayer";
+import { Bullet } from "../entities/Bullet";
+import { BulletManager } from "../api/BulletManager";
 
 export class World implements IWorld {
   private readonly CHUNK_SIZE = 800; // Same as screen width for now
@@ -44,6 +46,7 @@ export class World implements IWorld {
   private crowdednessFactor = 5;
 
   private _sessionManager = SessionManager.getInstance();
+  private _bulletManager: BulletManager;
 
   get debug(): boolean {
     return this._debug;
@@ -69,6 +72,10 @@ export class World implements IWorld {
     return Object.values(this._otherPlayers);
   }
 
+  getOtherPlayerById(id: string): IOtherPlayer | null {
+    return this._otherPlayers[id] || null;
+  }
+
   get walls(): IWall[] {
     return this._walls;
   }
@@ -87,6 +94,14 @@ export class World implements IWorld {
 
   get torchRadius(): number {
     return this._torchRadius;
+  }
+
+  get multiplayerMode(): "host" | "guest" {
+    return this._multiplayerMode;
+  }
+
+  get bulletManager(): BulletManager {
+    return this._bulletManager;
   }
 
   constructor(
@@ -110,6 +125,8 @@ export class World implements IWorld {
     loadImage(config.TEXTURES.FLOOR).then((img) => {
       this.floorTexture = img;
     });
+
+    this._bulletManager = new BulletManager();
   }
 
   initPlayer(position: IPoint, rotation: number = 0): void {
@@ -490,6 +507,8 @@ export class World implements IWorld {
       this._bonuses.forEach((bonus) => bonus.update(dt));
     }
 
+    this._bulletManager.update(dt);
+
     // Check win/lose conditions
     if (this._player && !this._player.isAlive()) {
       this.endGame();
@@ -547,6 +566,9 @@ export class World implements IWorld {
 
     // Draw enemies
     this._enemies.forEach((enemy) => enemy.draw(ctx));
+
+    // Draw bullets
+    this._bulletManager.draw(ctx);
 
     // Draw bonuses
     this._bonuses.forEach((bonus) => bonus.draw(ctx));

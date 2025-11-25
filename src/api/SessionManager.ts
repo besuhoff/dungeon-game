@@ -11,7 +11,6 @@ import { SocketService } from "./SocketService";
 import { IBullet } from "../types/screen-objects/IBullet";
 import {
   BulletCreatedData,
-  BulletRemovedData,
   PlayerJoinedData,
   PlayerLeftData,
   PositionUpdateData,
@@ -205,31 +204,9 @@ export class SessionManager {
     }
   }
 
-  public notifyBulletRemoved(bulletId: string): void {
-    if (!this.currentSession) {
-      console.warn("Attempting to notify about bullet without active session");
-      return;
-    }
-
-    this.socketService.triggerGameAction<BulletRemovedData>(
-      config.WEBSOCKET_ACTIONS.BULLET_REMOVED,
-      {
-        id: bulletId,
-        date: window.performance.now(),
-      }
-    );
-  }
-
   public onBulletCreated(callback: (bullet: BulletCreatedData) => void): void {
     this.socketService.onGameAction<BulletCreatedData>(
       config.WEBSOCKET_ACTIONS.BULLET_CREATED,
-      callback
-    );
-  }
-
-  public onBulletRemoved(callback: (bullet: BulletRemovedData) => void): void {
-    this.socketService.onGameAction<BulletRemovedData>(
-      config.WEBSOCKET_ACTIONS.BULLET_REMOVED,
       callback
     );
   }

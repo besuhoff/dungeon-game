@@ -14,10 +14,6 @@ export type BulletCreatedData = ServerResponseData & {
   ownerId?: string;
 };
 
-export type BulletRemovedData = ServerResponseData & {
-  id: string;
-};
-
 export type PositionUpdateData = ServerResponseData & {
   user_id: string;
   position: {

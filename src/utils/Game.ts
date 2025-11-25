@@ -12,6 +12,7 @@ import { Bullet } from "../entities/Bullet";
 import { Point2D } from "./geometry/Point2D";
 import { Session } from "../types/session";
 import { OtherPlayer } from "../entities/OtherPlayer";
+import { Vector2D } from "./geometry/Vector2D";
 
 export class Game {
   private _canvas: HTMLCanvasElement;
@@ -79,10 +80,18 @@ export class Game {
       const bullet = new Bullet(
         this._world!,
         new Point2D(bulletData.x, bulletData.y),
-        bulletData.velocity.getAngle(),
+        new Vector2D(bulletData.velocity.x, bulletData.velocity.y).getAngle(),
         bulletData.isEnemy,
         bulletData.ownerId
       );
+
+      if (bulletData.ownerId) {
+        this._world!.getOtherPlayerById(bulletData.ownerId)?.registerShot(
+          bullet
+        );
+      } else {
+        this._world!.bulletManager.registerShot(bullet);
+      }
     });
 
     this._sessionManager.onChunksUpdated((session) => {
@@ -154,7 +163,6 @@ export class Game {
         session.host && userData && session.host._id === userData._id
           ? "host"
           : "guest";
-      console.log(userData, multiplayerMode, session.host);
       this._world = new World(
         Player,
         Enemy,
