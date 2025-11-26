@@ -13,6 +13,7 @@ import {
   BulletCreatedData,
   PlayerJoinedData,
   PlayerLeftData,
+  PlayerRespawnedData,
   PositionUpdateData,
 } from "../types/socketEvents";
 import { IPlayer } from "../types/screen-objects/IPlayer";
@@ -22,7 +23,7 @@ export class SessionManager {
   private currentSession: Session | null = null;
   private socketService: SocketService;
   private lastPositionUpdate: number = 0;
-  private readonly POSITION_UPDATE_THROTTLE = 40;
+  private readonly POSITION_UPDATE_THROTTLE = 0;
   private pendingPositionUpdate: {
     x: number;
     y: number;
@@ -204,6 +205,21 @@ export class SessionManager {
     }
   }
 
+  public notifyRespawn(player: IPlayer): void {
+    if (!this.currentSession) {
+      console.warn("Attempting to notify about respawn without active session");
+      return;
+    }
+
+    this.socketService.triggerGameAction<PlayerRespawnedData>(
+      config.WEBSOCKET_ACTIONS.PLAYER_RESPAWNED,
+      {
+        user_id: player.id,
+        date: window.performance.now(),
+      }
+    );
+  }
+
   public onBulletCreated(callback: (bullet: BulletCreatedData) => void): void {
     this.socketService.onGameAction<BulletCreatedData>(
       config.WEBSOCKET_ACTIONS.BULLET_CREATED,
@@ -228,5 +244,14 @@ export class SessionManager {
 
   public onPlayerLeft(callback: (player: PlayerLeftData) => void): void {
     this.socketService.onPlayerLeft(callback);
+  }
+
+  public onPlayerRespawned(
+    callback: (data: PlayerRespawnedData) => void
+  ): void {
+    this.socketService.onGameAction<PlayerRespawnedData>(
+      config.WEBSOCKET_ACTIONS.PLAYER_RESPAWNED,
+      callback
+    );
   }
 }

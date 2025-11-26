@@ -13,10 +13,14 @@ import { Point2D } from "./geometry/Point2D";
 import { Session } from "../types/session";
 import { OtherPlayer } from "../entities/OtherPlayer";
 import { Vector2D } from "./geometry/Vector2D";
-
+import { v4 as uuidV4 } from "uuid";
 export class Game {
   private _canvas: HTMLCanvasElement;
+  private _lightCanvas: HTMLCanvasElement;
+  private _uiCanvas: HTMLCanvasElement;
   private _ctx: CanvasRenderingContext2D;
+  private _lightCtx: CanvasRenderingContext2D;
+  private _uiCtx: CanvasRenderingContext2D;
   private _lastTime: number = 0;
   private _world: World | null = null;
   private _activeKeys: Set<string> = new Set();
@@ -29,10 +33,19 @@ export class Game {
 
   constructor() {
     this._canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
-    this._ctx = this._canvas.getContext("2d")!;
+    this._lightCanvas = document.getElementById(
+      "lightCanvas"
+    ) as HTMLCanvasElement;
+    this._uiCanvas = document.getElementById("uiCanvas") as HTMLCanvasElement;
 
-    this._canvas.width = config.SCREEN_WIDTH;
-    this._canvas.height = config.SCREEN_HEIGHT;
+    [this._canvas, this._lightCanvas, this._uiCanvas].forEach((canvas) => {
+      canvas.width = config.SCREEN_WIDTH;
+      canvas.height = config.SCREEN_HEIGHT;
+    });
+
+    this._ctx = this._canvas.getContext("2d")!;
+    this._lightCtx = this._lightCanvas.getContext("2d")!;
+    this._uiCtx = this._uiCanvas.getContext("2d")!;
 
     this._authManager = AuthManager.getInstance();
     this._sessionManager = SessionManager.getInstance();
@@ -58,6 +71,7 @@ export class Game {
     audioManager.loadSound(config.SOUNDS.BONUS_PICKUP);
     audioManager.loadSound(config.SOUNDS.GAME_OVER);
     audioManager.loadSound(config.SOUNDS.BULLET);
+    audioManager.loadSound(config.SOUNDS.SPAWN);
     loadImage(config.TEXTURES.ENEMY_BLOOD);
     loadImage(config.TEXTURES.AID_KIT);
     loadImage(config.TEXTURES.GOGGLES);
@@ -115,6 +129,12 @@ export class Game {
     this._sessionManager.onPlayerJoined(({ user }) => {
       if (this._world) {
         this._world.addOtherPlayer(user);
+      }
+    });
+
+    this._sessionManager.onPlayerRespawned(({ user_id: playerId }) => {
+      if (this._world) {
+        this._world.respawnOtherPlayer(playerId);
       }
     });
 
@@ -189,7 +209,7 @@ export class Game {
         }
       }
 
-      this._world.initPlayer(position, rotation);
+      this._world.initPlayer(position, rotation, userData?._id || uuidV4());
 
       if (session.world_map) {
         this._world.unpackChunksFromSession(session.world_map);
@@ -211,10 +231,11 @@ export class Game {
 
   private draw(): void {
     // Clear the canvas
-    this._ctx.fillStyle = "black";
-    this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+    [this._ctx, this._uiCtx, this._lightCtx].forEach((ctx) => {
+      ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+    });
 
     // Draw the world
-    this._world?.draw(this._ctx);
+    this._world?.draw(this._ctx, this._lightCtx, this._uiCtx);
   }
 }

@@ -6,6 +6,7 @@ import { IKillable } from "./IKillable";
 import { IScreenObject } from "./IScreenObject";
 import { IBulletManager } from "./IBulletManager";
 import { IUpdatable } from "./IUpdatable";
+import { IVisor } from "./IVisor";
 
 export interface IOtherPlayer
   extends IScreenObject,
@@ -13,11 +14,13 @@ export interface IOtherPlayer
     IDamageable,
     IKillable,
     IUpdatable,
-    IBulletManager {
+    IBulletManager,
+    IVisor {
   moveTo(point: IPoint): void;
   rotate(angle: number): void;
   drawUI(ctx: CanvasRenderingContext2D): void;
   rotation: number;
+  get name(): string;
 }
 
 export interface IOtherPlayerFactory {

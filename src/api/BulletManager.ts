@@ -20,9 +20,9 @@ export class BulletManager implements IBulletManager, IUpdatable, IDrawable {
       .forEach((bullet) => bullet.update(dt));
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, uiCtx: CanvasRenderingContext2D): void {
     this.bullets
       .filter((bullet) => bullet.active)
-      .forEach((bullet) => bullet.draw(ctx));
+      .forEach((bullet) => bullet.draw(ctx, uiCtx));
   }
 }

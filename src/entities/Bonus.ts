@@ -4,70 +4,84 @@ import { IPoint } from "../types/geometry/IPoint";
 import { IWorld } from "../types/IWorld";
 import { ScreenObject } from "./ScreenObject";
 import { loadImage } from "../utils/loadImage";
-import * as config from '../config';
+import * as config from "../config";
 import { AudioManager } from "../utils/AudioManager";
 
 export class Bonus extends ScreenObject implements IBonus {
-    public type: BonusType;
-    private image: HTMLImageElement | null = null;
+  public type: BonusType;
+  private image: HTMLImageElement | null = null;
 
-    constructor(private world: IWorld, point: IPoint, type: BonusType, id?: string) {
-        // Load appropriate texture
-        let texturePath: string = '';
-        let size: number = 0;
+  constructor(
+    private world: IWorld,
+    point: IPoint,
+    type: BonusType,
+    id?: string
+  ) {
+    // Load appropriate texture
+    let texturePath: string = "";
+    let size: number = 0;
 
-        if (type === 'aid_kit') {
-            texturePath = config.TEXTURES.AID_KIT;
-            size = config.AID_KIT_SIZE;
-        } else if (type === 'goggles') {
-            texturePath = config.TEXTURES.GOGGLES;
-            size = config.GOGGLES_SIZE;
-        }
-
-        super(point, size, size, id);
-
-        this.type = type;
-
-        loadImage(texturePath).then(img => {
-            this.image = img;
-        });
-
-        AudioManager.getInstance().loadSound(config.SOUNDS.BONUS_PICKUP);
+    if (type === "aid_kit") {
+      texturePath = config.TEXTURES.AID_KIT;
+      size = config.AID_KIT_SIZE;
+    } else if (type === "goggles") {
+      texturePath = config.TEXTURES.GOGGLES;
+      size = config.GOGGLES_SIZE;
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
-        if (!this.image || !this.world.player) {
-            return;
-        }
+    super(point, size, size, id);
 
-        const player = this.world.player;
-        const distance = this.getPosition().distanceTo(player.getPosition());
-        const shouldDraw = (distance <= this.world.torchRadius + this.width || player.nightVisionTimer > 0) && !this.world.gameOver;
+    this.type = type;
 
-        if (!shouldDraw) {
-            return;
-        }
+    loadImage(texturePath).then((img) => {
+      this.image = img;
+    });
 
-        const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
+    AudioManager.getInstance().loadSound(config.SOUNDS.BONUS_PICKUP);
+  }
 
-        ctx.save();
-        ctx.translate(screenPoint.x, screenPoint.y);
-        ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
-        ctx.restore();
+  draw(ctx: CanvasRenderingContext2D): void {
+    if (!this.image || !this.world.player) {
+      return;
     }
 
-    update(dt: number): void {
-        const player = this.world.player;
-        
-        if (player && this.checkCollisionWithObject(player)) {
-            AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);
-            if (this.type === 'aid_kit') {
-                player.heal(config.AID_KIT_HEAL_AMOUNT);
-            } else if (this.type === 'goggles') {
-                player.addNightVision();
-            }
+    const player = this.world.player;
+    const distance = this.getPosition().distanceTo(player.getPosition());
+    const shouldDraw =
+      (distance <= this.world.torchRadius + this.width ||
+        player.hasNightVision()) &&
+      !this.world.gameOver;
 
-            this.world.removeBonus(this);
-        }
+    if (!shouldDraw) {
+      return;
     }
+
+    const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
+
+    ctx.save();
+    ctx.translate(screenPoint.x, screenPoint.y);
+    ctx.drawImage(
+      this.image,
+      -this.width / 2,
+      -this.height / 2,
+      this.width,
+      this.height
+    );
+    ctx.restore();
+  }
+
+  update(dt: number): void {
+    const player = this.world.player;
+
+    if (player && this.checkCollisionWithObject(player)) {
+      AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);
+      if (this.type === "aid_kit") {
+        player.heal(config.AID_KIT_HEAL_AMOUNT);
+      } else if (this.type === "goggles") {
+        player.addNightVision();
+      }
+
+      this.world.removeBonus(this);
+    }
+  }
 }

@@ -101,7 +101,7 @@
         display: none;
       }
 
-      #gameCanvas {
+      .gameCanvas {
         position: absolute;
         top: 0;
         left: 0;
@@ -323,7 +323,9 @@
       </div>
     </div>
     <div id="gameScreen">
-      <canvas id="gameCanvas"></canvas>
+      <canvas id="gameCanvas" class="gameCanvas"></canvas>
+      <canvas id="lightCanvas" class="gameCanvas"></canvas>
+      <canvas id="uiCanvas" class="gameCanvas"></canvas>
     </div>
     <div id="sessionNameModal" class="modal">
       <div class="modal-content">

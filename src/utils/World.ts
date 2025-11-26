@@ -20,7 +20,6 @@ import {
   IOtherPlayer,
   IOtherPlayerFactory,
 } from "../types/screen-objects/IOtherPlayer";
-import { Bullet } from "../entities/Bullet";
 import { BulletManager } from "../api/BulletManager";
 
 export class World implements IWorld {
@@ -119,8 +118,6 @@ export class World implements IWorld {
       audioManager.playSound(config.SOUNDS.TORCH, 1, true);
     });
 
-    audioManager.loadSound(config.SOUNDS.GAME_OVER);
-
     // Load floor texture
     loadImage(config.TEXTURES.FLOOR).then((img) => {
       this.floorTexture = img;
@@ -129,8 +126,8 @@ export class World implements IWorld {
     this._bulletManager = new BulletManager();
   }
 
-  initPlayer(position: IPoint, rotation: number = 0): void {
-    this._player = new this._Player(this, position, rotation);
+  initPlayer(position: IPoint, rotation: number, id: string): void {
+    this._player = new this._Player(this, position, rotation, id);
   }
 
   addOtherPlayer(player: SessionPlayer): void {
@@ -146,6 +143,23 @@ export class World implements IWorld {
 
   removeOtherPlayer(playerId: string): void {
     delete this._otherPlayers[playerId];
+  }
+
+  respawnOtherPlayer(playerId: string): void {
+    const otherPlayer = this._otherPlayers[playerId];
+    if (!otherPlayer) {
+      return;
+    }
+
+    this._otherPlayers[playerId] = new this._OtherPlayer(
+      this,
+      otherPlayer.getPosition(),
+      otherPlayer.rotation,
+      otherPlayer.id,
+      otherPlayer.name
+    );
+
+    AudioManager.getInstance().playSound(config.SOUNDS.SPAWN);
   }
 
   updateOtherPlayerPosition(
@@ -555,38 +569,42 @@ export class World implements IWorld {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    lightCtx: CanvasRenderingContext2D,
+    uiCtx: CanvasRenderingContext2D
+  ): void {
     // Clear the canvas
     ctx.clearRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
 
     this.drawFloor(ctx);
 
     // Draw walls
-    this._walls.forEach((wall) => wall.draw(ctx));
+    this._walls.forEach((wall) => wall.draw(ctx, uiCtx));
 
     // Draw enemies
-    this._enemies.forEach((enemy) => enemy.draw(ctx));
+    this._enemies.forEach((enemy) => enemy.draw(ctx, uiCtx));
 
     // Draw bullets
-    this._bulletManager.draw(ctx);
+    this._bulletManager.draw(ctx, uiCtx);
 
     // Draw bonuses
-    this._bonuses.forEach((bonus) => bonus.draw(ctx));
+    this._bonuses.forEach((bonus) => bonus.draw(ctx, uiCtx));
 
     Object.values(this._otherPlayers).forEach((otherPlayer) => {
-      otherPlayer.draw(ctx);
+      otherPlayer.draw(ctx, uiCtx);
     });
 
     // Draw player
     if (this._player) {
-      this._player.draw(ctx);
+      this._player.draw(ctx, uiCtx);
     }
 
     // Draw darkness overlay
-    this.drawDarknessOverlay(ctx);
+    this.drawDarknessOverlay(lightCtx);
 
     // Draw UI
-    this.drawUI(ctx);
+    this.drawUI(uiCtx);
   }
 
   private drawDarknessOverlay(ctx: CanvasRenderingContext2D): void {
@@ -596,38 +614,45 @@ export class World implements IWorld {
       return;
     }
 
+    if (this._player.hasNightVision()) {
+      ctx.fillStyle = this._player.isNightVisionFading()
+        ? config.COLOR_NIGHT_VISION_FADING
+        : config.COLOR_NIGHT_VISION;
+      ctx.fillRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
+      return;
+    }
+
+    const players = [
+      this._player,
+      ...this.otherPlayers.filter((p) => !p.hasNightVision()),
+    ];
+
     const torchRadius =
       this._torchRadius * 0.97 + Math.random() * this._torchRadius * 0.06;
 
-    const torchPoint = this.worldToScreenCoordinates(
-      this._player.getTorchPoint()
-    );
-
-    const gradient = ctx.createRadialGradient(
-      torchPoint.x,
-      torchPoint.y,
-      0,
-      torchPoint.x,
-      torchPoint.y,
-      torchRadius
-    );
-
-    if (this._player.nightVisionTimer > 0) {
-      const color =
-        this._player.nightVisionTimer < 2 &&
-        this._player.nightVisionTimer % 0.2 < 0.1
-          ? config.COLOR_NIGHT_VISION_FADING
-          : config.COLOR_NIGHT_VISION;
-
-      gradient.addColorStop(0, color);
-      gradient.addColorStop(1, color);
-    } else {
-      gradient.addColorStop(0, config.COLOR_TRANSPARENT);
-      gradient.addColorStop(1, config.COLOR_DARK);
-    }
-
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = config.COLOR_DARK;
     ctx.fillRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
+    ctx.globalCompositeOperation = "destination-out";
+
+    players.forEach((player) => {
+      const torchPoint = this.worldToScreenCoordinates(player.getTorchPoint());
+
+      const gradient = ctx.createRadialGradient(
+        torchPoint.x,
+        torchPoint.y,
+        0,
+        torchPoint.x,
+        torchPoint.y,
+        torchRadius
+      );
+      gradient.addColorStop(0, config.COLOR_LIGHT);
+      gradient.addColorStop(1, config.COLOR_TRANSPARENT);
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
+      ctx.fillRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
+    });
+    ctx.globalCompositeOperation = "source-over";
   }
 
   public worldToScreenCoordinates(point: IPoint): IPoint {
@@ -661,7 +686,13 @@ export class World implements IWorld {
 
   restart(): void {
     this._gameOver = false;
-    this._player = new this._Player(this, new Point2D(0, 0));
+    this._player = new this._Player(
+      this,
+      this._player!.getPosition(),
+      this._player!.rotation,
+      this._player!.id
+    );
+    this._sessionManager.notifyRespawn(this._player);
   }
 
   private drawUI(ctx: CanvasRenderingContext2D): void {
@@ -709,7 +740,7 @@ export class World implements IWorld {
         10,
         90
       );
-      if (this._player.nightVisionTimer > 0) {
+      if (this._player.hasNightVision()) {
         ctx.fillStyle = "#90ff90";
         ctx.fillText(
           `Night Vision: ${this._player.nightVisionTimer.toFixed(0)}`,

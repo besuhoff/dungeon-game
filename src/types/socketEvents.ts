@@ -27,6 +27,10 @@ export type PlayerJoinedData = ServerResponseData & {
   user: SessionPlayer;
 };
 
+export type PlayerRespawnedData = ServerResponseData & {
+  user_id: SessionPlayer["player_id"];
+};
+
 export type PlayerLeftData = ServerResponseData & {
   user_id: SessionPlayer["player_id"];
 };

@@ -112,10 +112,7 @@ export class Enemy extends ScreenObject implements IEnemy {
     const dy = player.y - this.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (
-      player.nightVisionTimer > 0 &&
-      distance > this.nightVisionDetectionRadius
-    ) {
+    if (player.hasNightVision() && distance > this.nightVisionDetectionRadius) {
       return false;
     }
 
@@ -297,9 +294,9 @@ export class Enemy extends ScreenObject implements IEnemy {
     this.moveBy(x - this.x, y - this.y);
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, uiCtx: CanvasRenderingContext2D): void {
     this._bullets.forEach((bullet) => {
-      bullet.draw(ctx);
+      bullet.draw(ctx, uiCtx);
     });
 
     const player = this.world.player;
@@ -311,7 +308,7 @@ export class Enemy extends ScreenObject implements IEnemy {
     const distance = this.getPosition().distanceTo(player.getPosition());
     const shouldDraw =
       (distance <= this.world.torchRadius + this.width ||
-        player.nightVisionTimer > 0) &&
+        player.hasNightVision()) &&
       !this.world.gameOver;
     const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
 
@@ -347,13 +344,14 @@ export class Enemy extends ScreenObject implements IEnemy {
       );
     }
 
-    ctx.rotate((-this.rotation * Math.PI) / 180);
+    ctx.restore();
 
     if (this.world.debug) {
+      uiCtx.save();
+      uiCtx.translate(screenPoint.x, screenPoint.y);
       // Draw debug information
-      ctx.strokeStyle = "#00ff00";
-
-      ctx.strokeRect(
+      uiCtx.strokeStyle = "#00ff00";
+      uiCtx.strokeRect(
         -this.width / 2,
         -this.height / 2,
         this.width,
@@ -362,27 +360,26 @@ export class Enemy extends ScreenObject implements IEnemy {
 
       if (!this.dead) {
         // Draw gun end point
-        ctx.rotate((this.rotation * Math.PI) / 180);
+        uiCtx.rotate((this.rotation * Math.PI) / 180);
 
-        ctx.fillStyle = "magenta";
+        uiCtx.fillStyle = "magenta";
         const gunPoint = texturePoint.movedByPointCoordinates(
           config.ENEMY_GUN_END
         );
-        ctx.beginPath();
-        ctx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
-        ctx.fill();
+        uiCtx.beginPath();
+        uiCtx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
+        uiCtx.fill();
 
-        ctx.rotate((-this.rotation * Math.PI) / 180);
+        uiCtx.rotate((-this.rotation * Math.PI) / 180);
       }
 
-      ctx.fillStyle = "white";
-      ctx.font = `12px ${config.FONT_NAME}`;
-      ctx.textAlign = "left";
-      ctx.fillText(`Wall #${this._wall.id}`, -20, 24);
-      ctx.fillText(`Position: ${this.getPosition()}`, -20, 36);
+      uiCtx.fillStyle = "white";
+      uiCtx.font = `12px ${config.FONT_NAME}`;
+      uiCtx.textAlign = "left";
+      uiCtx.fillText(`Wall #${this._wall.id}`, -20, 24);
+      uiCtx.fillText(`Position: ${this.getPosition()}`, -20, 36);
+      uiCtx.restore();
     }
-
-    ctx.restore();
   }
 
   takeDamage(damage: number): void {
@@ -422,5 +419,9 @@ export class Enemy extends ScreenObject implements IEnemy {
 
   isAlive(): boolean {
     return !this.dead;
+  }
+
+  isInvulnerable(): boolean {
+    return false;
   }
 }

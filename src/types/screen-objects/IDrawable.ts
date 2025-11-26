@@ -1,4 +1,3 @@
-
 export interface IDrawable {
-    draw(ctx: CanvasRenderingContext2D): void;
+  draw(ctx: CanvasRenderingContext2D, uiCtx: CanvasRenderingContext2D): void;
 }

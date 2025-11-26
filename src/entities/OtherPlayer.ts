@@ -3,21 +3,36 @@ import * as config from "../config";
 import { IBullet } from "../types/screen-objects/IBullet";
 import { IPoint } from "../types/geometry/IPoint";
 import { IWorld } from "../types/IWorld";
-import { Bullet } from "./Bullet";
 import { loadImage } from "../utils/loadImage";
 import { AudioManager } from "../utils/AudioManager";
 import { IOtherPlayer } from "../types/screen-objects/IOtherPlayer";
+import { Point2D } from "../utils/geometry/Point2D";
 
 export class OtherPlayer extends ScreenObject implements IOtherPlayer {
   private _image: HTMLImageElement | null = null;
+  private _bloodImage: HTMLImageElement | null = null;
+
   private _rotation: number = 0;
   private _bullets: IBullet[] = [];
 
   private _invulnerableTimer: number = 0;
   private _lives: number = config.PLAYER_LIVES;
+  private _nightVisionTimer: number = 0;
+
+  private reward: number = config.PLAYER_REWARD;
+  private dead: boolean = false;
+  private deadTimer: number = 0;
 
   get rotation(): number {
     return this._rotation;
+  }
+
+  get nightVisionTimer(): number {
+    return this._nightVisionTimer;
+  }
+
+  get name(): string {
+    return this._name;
   }
 
   constructor(
@@ -25,7 +40,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     point: IPoint,
     rotation: number,
     id: string,
-    private name: string
+    private _name: string
   ) {
     super(point, config.PLAYER_SIZE, config.PLAYER_SIZE, id);
 
@@ -38,9 +53,13 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     audioManager.loadSound(config.SOUNDS.PLAYER_BULLET_RECHARGE);
 
     // Load player sprite
-    const texturePath = config.TEXTURES.PLAYER;
-    loadImage(texturePath).then((img) => {
+    loadImage(config.TEXTURES.PLAYER).then((img) => {
       this._image = img;
+    });
+
+    // Load blood texture
+    loadImage(config.TEXTURES.ENEMY_BLOOD).then((img) => {
+      this._bloodImage = img;
     });
   }
 
@@ -78,6 +97,13 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       this._invulnerableTimer = config.PLAYER_INVULNERABILITY_TIME;
       AudioManager.getInstance().playSound(config.SOUNDS.PLAYER_HURT);
     }
+
+    if (this._lives <= 0) {
+      this.die();
+      if (this.world.player) {
+        this.world.player.recordKill(this.reward);
+      }
+    }
   }
 
   update(dt: number): void {
@@ -89,11 +115,18 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     this._bullets.forEach((bullet) => {
       bullet.update(dt);
     });
+
+    if (this.dead) {
+      if (this.deadTimer <= 0) {
+        this.deadTimer -= dt;
+      }
+      return;
+    }
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, uiCtx: CanvasRenderingContext2D): void {
     this._bullets.forEach((bullet) => {
-      bullet.draw(ctx);
+      bullet.draw(ctx, uiCtx);
     });
 
     if (!this._image || !this.world.player || this.world.gameOver) {
@@ -101,38 +134,62 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     }
 
     const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
-    const distance = this.getPosition().distanceTo(
-      this.world.player.getPosition()
-    );
-    const shouldDraw =
-      distance <= this.world.torchRadius + this.width ||
-      this.world.player.nightVisionTimer > 0;
+    let shouldDraw = true;
+
+    if (this.hasNightVision() && !this.world.player.hasNightVision()) {
+      const distance = this.getPosition().distanceTo(
+        this.world.player.getPosition()
+      );
+      shouldDraw = distance <= this.world.torchRadius + this.width;
+    }
 
     if (!shouldDraw) {
       return;
     }
 
-    this.drawUI(ctx);
+    this.drawUI(uiCtx);
 
     // Handle invulnerability blinking
     const blinkFactor =
       (this._invulnerableTimer * 5) / config.PLAYER_INVULNERABILITY_TIME;
     const shouldBlink = blinkFactor - Math.floor(blinkFactor) < 0.5;
-    const texturePoint = config.PLAYER_TEXTURE_CENTER.inverted();
 
     ctx.save();
     ctx.translate(screenPoint.x, screenPoint.y);
 
-    if ((!this._invulnerableTimer || shouldBlink) && !this.world.gameOver) {
+    if (
+      (this.dead || !this._invulnerableTimer || shouldBlink) &&
+      !this.world.gameOver
+    ) {
       // Draw player sprite
       ctx.rotate((this._rotation * Math.PI) / 180);
-      ctx.drawImage(
-        this._image,
-        texturePoint.x,
-        texturePoint.y,
-        config.PLAYER_TEXTURE_SIZE,
-        config.PLAYER_TEXTURE_SIZE
-      );
+      const textureSize = !this.dead
+        ? config.PLAYER_TEXTURE_SIZE
+        : config.ENEMY_BLOOD_TEXTURE_SIZE;
+      const texturePoint = !this.dead
+        ? config.PLAYER_TEXTURE_CENTER.inverted()
+        : new Point2D(-textureSize / 2, -textureSize / 2);
+
+      if (this.dead && this._bloodImage) {
+        ctx.drawImage(
+          this._bloodImage,
+          -this.width / 2,
+          -this.height / 2,
+          this.width,
+          this.height
+        );
+      }
+
+      if (!this.dead && this._image) {
+        ctx.drawImage(
+          this._image,
+          texturePoint.x,
+          texturePoint.y,
+          textureSize,
+          textureSize
+        );
+      }
+
       ctx.rotate((-this._rotation * Math.PI) / 180);
     }
 
@@ -140,8 +197,8 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
 
     if (this.world.debug) {
       // Draw collision box
-      ctx.strokeStyle = "red";
-      ctx.strokeRect(
+      uiCtx.strokeStyle = "red";
+      uiCtx.strokeRect(
         -this.width / 2 + screenPoint.x,
         -this.height / 2 + screenPoint.y,
         this.width,
@@ -149,18 +206,18 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       );
 
       // Draw center point
-      ctx.fillStyle = "magenta";
-      ctx.beginPath();
-      ctx.arc(screenPoint.x, screenPoint.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      uiCtx.fillStyle = "magenta";
+      uiCtx.beginPath();
+      uiCtx.arc(screenPoint.x, screenPoint.y, 2, 0, Math.PI * 2);
+      uiCtx.fill();
 
       // Draw gun end point
-      ctx.fillStyle = "magenta";
+      uiCtx.fillStyle = "magenta";
       const gunPoint = this.world.worldToScreenCoordinates(this.getGunPoint());
 
-      ctx.beginPath();
-      ctx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      uiCtx.beginPath();
+      uiCtx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
+      uiCtx.fill();
     }
   }
 
@@ -168,7 +225,10 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     return this._lives > 0;
   }
 
-  die(): void {}
+  die(): void {
+    this.deadTimer = config.ENEMY_DEATH_TRACE_TIME;
+    this.dead = true;
+  }
 
   get lives(): number {
     return this._lives;
@@ -206,5 +266,31 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
         textMetrics.actualBoundingBoxAscent +
         padding
     );
+  }
+
+  isInvulnerable(): boolean {
+    return this._invulnerableTimer > 0;
+  }
+
+  addNightVision(): void {
+    this._nightVisionTimer = config.GOGGLES_ACTIVE_TIME;
+  }
+
+  hasNightVision(): boolean {
+    // TODO: implement if needed
+    return false;
+  }
+
+  isNightVisionFading(): boolean {
+    // TODO: implement if needed
+    return false;
+  }
+
+  getTorchPoint(): IPoint {
+    // Get gun position
+    return this.getPosition()
+      .movedByPointCoordinates(config.PLAYER_TEXTURE_CENTER.inverted())
+      .moveByPointCoordinates(config.PLAYER_TORCH_POINT)
+      .rotateAroundPointCoordinates(this.getPosition(), this._rotation);
   }
 }

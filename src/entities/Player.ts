@@ -11,7 +11,7 @@ import { AuthManager } from "../api/AuthManager";
 import { SessionManager } from "../api/SessionManager";
 
 export class Player extends ScreenObject implements IPlayer {
-  public nightVisionTimer: number = 0;
+  private _nightVisionTimer: number = 0;
   private _speed: number = config.PLAYER_SPEED;
   private _image: HTMLImageElement | null = null;
   private _rotation: number = 0;
@@ -50,12 +50,17 @@ export class Player extends ScreenObject implements IPlayer {
     return this._rotation;
   }
 
+  get nightVisionTimer(): number {
+    return this._nightVisionTimer;
+  }
+
   constructor(
     private world: IWorld,
     point: IPoint,
-    rotation: number = 0
+    rotation: number,
+    id: string = ""
   ) {
-    super(point, config.PLAYER_SIZE, config.PLAYER_SIZE);
+    super(point, config.PLAYER_SIZE, config.PLAYER_SIZE, id);
 
     this._rotation = rotation;
 
@@ -121,7 +126,7 @@ export class Player extends ScreenObject implements IPlayer {
 
     const collidableObjects = [
       ...this.world.walls,
-      ...this.world.otherPlayers,
+      ...this.world.otherPlayers.filter((player) => player.isAlive()),
       ...this.world.enemies.filter((enemy) => enemy.isAlive()),
     ];
 
@@ -234,7 +239,15 @@ export class Player extends ScreenObject implements IPlayer {
   }
 
   addNightVision(): void {
-    this.nightVisionTimer += config.GOGGLES_ACTIVE_TIME;
+    this._nightVisionTimer += config.GOGGLES_ACTIVE_TIME;
+  }
+
+  hasNightVision(): boolean {
+    return this._nightVisionTimer > 0;
+  }
+
+  isNightVisionFading(): boolean {
+    return this._nightVisionTimer < 2 && this._nightVisionTimer % 0.2 < 0.1;
   }
 
   heal(amount: number): void {
@@ -251,8 +264,8 @@ export class Player extends ScreenObject implements IPlayer {
       this._shootDelay = Math.max(0, this._shootDelay - dt);
     }
 
-    if (this.nightVisionTimer > 0) {
-      this.nightVisionTimer = Math.max(0, this.nightVisionTimer - dt);
+    if (this._nightVisionTimer > 0) {
+      this._nightVisionTimer = Math.max(0, this._nightVisionTimer - dt);
     }
 
     this._bullets
@@ -275,9 +288,9 @@ export class Player extends ScreenObject implements IPlayer {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
+  draw(ctx: CanvasRenderingContext2D, uiCtx: CanvasRenderingContext2D): void {
     this._bullets.forEach((bullet) => {
-      bullet.draw(ctx);
+      bullet.draw(ctx, uiCtx);
     });
 
     if (!this._image) {
@@ -313,8 +326,8 @@ export class Player extends ScreenObject implements IPlayer {
 
     if (this.world.debug) {
       // Draw collision box
-      ctx.strokeStyle = "red";
-      ctx.strokeRect(
+      uiCtx.strokeStyle = "red";
+      uiCtx.strokeRect(
         -this.width / 2 + screenPoint.x,
         -this.height / 2 + screenPoint.y,
         this.width,
@@ -322,28 +335,28 @@ export class Player extends ScreenObject implements IPlayer {
       );
 
       // Draw center point
-      ctx.fillStyle = "magenta";
-      ctx.beginPath();
-      ctx.arc(screenPoint.x, screenPoint.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      uiCtx.fillStyle = "magenta";
+      uiCtx.beginPath();
+      uiCtx.arc(screenPoint.x, screenPoint.y, 2, 0, Math.PI * 2);
+      uiCtx.fill();
 
       // Draw gun end point
-      ctx.fillStyle = "magenta";
+      uiCtx.fillStyle = "magenta";
       const gunPoint = this.world.worldToScreenCoordinates(this.getGunPoint());
 
-      ctx.beginPath();
-      ctx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      uiCtx.beginPath();
+      uiCtx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
+      uiCtx.fill();
 
       // Draw torch point
-      ctx.fillStyle = "cyan";
+      uiCtx.fillStyle = "cyan";
       const torchPoint = this.world.worldToScreenCoordinates(
         this.getTorchPoint()
       );
 
-      ctx.beginPath();
-      ctx.arc(torchPoint.x, torchPoint.y, 2, 0, Math.PI * 2);
-      ctx.fill();
+      uiCtx.beginPath();
+      uiCtx.arc(torchPoint.x, torchPoint.y, 2, 0, Math.PI * 2);
+      uiCtx.fill();
     }
   }
 
@@ -403,5 +416,9 @@ export class Player extends ScreenObject implements IPlayer {
   recordKill(reward: number): void {
     this._kills++;
     this._money += reward;
+  }
+
+  isInvulnerable(): boolean {
+    return this._invulnerableTimer > 0;
   }
 }

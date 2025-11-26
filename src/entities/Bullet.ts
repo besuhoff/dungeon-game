@@ -127,21 +127,21 @@ export class Bullet extends ScreenObject implements IBullet {
 
   checkHitsPlayer(): boolean {
     return Boolean(
-      this.isEnemy &&
+      (this.isEnemy || this.ownerId !== this.world.player?.id) &&
         this.world.player &&
         this.world.player.isAlive() &&
+        !this.world.player.isInvulnerable() &&
         this.checkCollisionWithObject(this.world.player)
     );
   }
 
   checkHitsOtherPlayers(): IOtherPlayer[] {
-    if (!this.isEnemy) {
-      return [];
-    }
-
     return this.world.otherPlayers.filter(
       (otherPlayer) =>
-        otherPlayer.isAlive() && this.checkCollisionWithObject(otherPlayer)
+        this.ownerId !== otherPlayer.id &&
+        otherPlayer.isAlive() &&
+        !otherPlayer.isInvulnerable() &&
+        this.checkCollisionWithObject(otherPlayer)
     );
   }
 }
