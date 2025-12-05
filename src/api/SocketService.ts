@@ -26,7 +26,7 @@ export class SocketService {
   private reconnectDelay: number = 1000;
   private sessionId: string | null = null;
   private messageQueue: GameMessage[] = [];
-  private binaryMode: boolean = false;
+  private binaryMode: boolean = true;
 
   private constructor() {}
 
