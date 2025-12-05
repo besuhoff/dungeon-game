@@ -1,21 +1,19 @@
 export interface SessionPlayer {
   player_id: string;
   name: string;
-  effects: [];
-  health: number;
+  lives: number;
+  kills: number;
+  money: number;
   is_alive: boolean;
-  is_connected: boolean;
-  last_updated: string;
   position: {
     x: number;
     y: number;
     rotation: number;
   };
-  weapons: [];
 }
 
 export interface Session {
-  _id: string;
+  id: string;
   name: string;
   startedAt: string;
   endedAt?: string;
@@ -27,7 +25,7 @@ export interface Session {
   max_players?: number;
   is_private?: boolean;
   host: {
-    _id: string;
+    id: string;
     username: string;
     email: string;
   };
@@ -35,7 +33,6 @@ export interface Session {
 
 export interface CreateSessionRequest {
   name: string;
-  health: number;
 }
 
 export interface UpdateSessionRequest {

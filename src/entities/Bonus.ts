@@ -69,19 +69,4 @@ export class Bonus extends ScreenObject implements IBonus {
     );
     ctx.restore();
   }
-
-  update(dt: number): void {
-    const player = this.world.player;
-
-    if (player && this.checkCollisionWithObject(player)) {
-      AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);
-      if (this.type === "aid_kit") {
-        player.heal(config.AID_KIT_HEAL_AMOUNT);
-      } else if (this.type === "goggles") {
-        player.addNightVision();
-      }
-
-      this.world.removeBonus(this);
-    }
-  }
 }

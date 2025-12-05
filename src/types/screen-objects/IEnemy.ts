@@ -1,21 +1,15 @@
-import { IUpdatable } from "./IUpdatable";
 import { IDrawable } from "./IDrawable";
 import { IWorld } from "../IWorld";
 import { IDamageable } from "./IDamageable";
 import { IKillable } from "./IKillable";
-import { IShooter } from "./IShooter";
 import { IScreenObject } from "./IScreenObject";
 import { IWall } from "./IWall";
 import { IPlayer } from "./IPlayer";
+import { Enemy as EnemyMessage } from "../../types/socketEvents";
 
-export interface IEnemy
-  extends IScreenObject,
-    IDrawable,
-    IUpdatable,
-    IDamageable,
-    IKillable,
-    IShooter {
+export interface IEnemy extends IScreenObject, IDrawable {
   canSeePlayer(player: IPlayer): boolean;
+  applyFromGameState(enemy: EnemyMessage): void;
   rotation: number;
   wall: IWall;
 }

@@ -14,6 +14,7 @@ import { Session } from "../types/session";
 import { OtherPlayer } from "../entities/OtherPlayer";
 import { Vector2D } from "./geometry/Vector2D";
 import { v4 as uuidV4 } from "uuid";
+import { BulletManager } from "./BulletManager";
 export class Game {
   private _canvas: HTMLCanvasElement;
   private _lightCanvas: HTMLCanvasElement;
@@ -62,6 +63,7 @@ export class Game {
       loadImage(config.TEXTURES.ENEMY),
       loadImage(config.TEXTURES.WALL),
       audioManager.loadSound(config.SOUNDS.PLAYER_HURT),
+      audioManager.loadSound(config.SOUNDS.PLAYER_DEAD),
       audioManager.loadSound(config.SOUNDS.ENEMY_HURT),
       audioManager.loadSound(config.SOUNDS.TORCH),
     ]);
@@ -72,7 +74,7 @@ export class Game {
     audioManager.loadSound(config.SOUNDS.GAME_OVER);
     audioManager.loadSound(config.SOUNDS.BULLET);
     audioManager.loadSound(config.SOUNDS.SPAWN);
-    loadImage(config.TEXTURES.ENEMY_BLOOD);
+    loadImage(config.TEXTURES.BLOOD);
     loadImage(config.TEXTURES.AID_KIT);
     loadImage(config.TEXTURES.GOGGLES);
   }
@@ -90,55 +92,25 @@ export class Game {
     window.addEventListener("mousemove", (e) => this.handleMouseMove(e));
     window.addEventListener("mousedown", (e) => this.handleMouseDown(e));
 
-    this._sessionManager.onBulletCreated((bulletData) => {
-      const bullet = new Bullet(
-        this._world!,
-        new Point2D(bulletData.x, bulletData.y),
-        new Vector2D(bulletData.velocity.x, bulletData.velocity.y).getAngle(),
-        bulletData.isEnemy,
-        bulletData.ownerId
-      );
-
-      if (bulletData.ownerId) {
-        this._world!.getOtherPlayerById(bulletData.ownerId)?.registerShot(
-          bullet
-        );
-      } else {
-        this._world!.bulletManager.registerShot(bullet);
-      }
-    });
-
-    this._sessionManager.onChunksUpdated((session) => {
-      if (this._world && session.world_map) {
-        this._world.unpackChunksFromSession(session.world_map);
-      }
-    });
-
-    this._sessionManager.onPositionUpdate((data) => {
+    this._sessionManager.onGameState((changeset) => {
       if (this._world) {
-        const point = new Point2D(data.position.x, data.position.y);
-        this._world.updateOtherPlayerPosition(
-          data.user_id,
-          point,
-          data.position.rotation,
-          data.date
-        );
+        this._world.applyGameState(changeset);
       }
     });
 
-    this._sessionManager.onPlayerJoined(({ user }) => {
+    this._sessionManager.onGameStateDelta((changeset) => {
       if (this._world) {
-        this._world.addOtherPlayer(user);
+        this._world.applyGameStateDelta(changeset);
       }
     });
 
-    this._sessionManager.onPlayerRespawned(({ user_id: playerId }) => {
-      if (this._world) {
-        this._world.respawnOtherPlayer(playerId);
+    this._sessionManager.onPlayerJoined(({ player }) => {
+      if (player && this._world) {
+        this._world.addOtherPlayer(player);
       }
     });
 
-    this._sessionManager.onPlayerLeft(({ user_id: playerId }) => {
+    this._sessionManager.onPlayerLeft(({ playerId }) => {
       if (this._world) {
         this._world.removeOtherPlayer(playerId);
       }
@@ -152,7 +124,7 @@ export class Game {
     if (e.key === "F3") {
       this._world?.toggleDebug();
     }
-    if (e.key === "r" || e.key === "R") {
+    if (["r", "R"].includes(e.key) && this._world?.gameOver) {
       this._world?.restart();
     }
   }
@@ -175,12 +147,10 @@ export class Game {
   }
 
   public async start(session: Session): Promise<void> {
-    const chunks = session?.world_map;
-
     if (session) {
       const userData = this._authManager.getUserData();
       const multiplayerMode =
-        session.host && userData && session.host._id === userData._id
+        session.host && userData && session.host.id === userData.id
           ? "host"
           : "guest";
       this._world = new World(
@@ -189,30 +159,15 @@ export class Game {
         Wall,
         Bonus,
         OtherPlayer,
+        Bullet,
+        BulletManager,
         multiplayerMode
       );
-      const position = new Point2D(0, 0);
-      let rotation = 0;
 
-      if (session.players) {
-        const currentUserId = this._authManager.getUserData()!._id;
-        const { [currentUserId]: currentPlayer, ...otherPlayers } =
-          session.players;
-
-        rotation = currentPlayer.position.rotation;
-        position.setTo(currentPlayer.position.x, currentPlayer.position.y);
-
-        for (const player of Object.values(otherPlayers).filter(
-          (player) => player.is_connected
-        )) {
-          this._world.addOtherPlayer(player);
-        }
-      }
-
-      this._world.initPlayer(position, rotation, userData?._id || uuidV4());
+      this._world.initPlayerFromSession(session.players[userData!.id]);
 
       if (session.world_map) {
-        this._world.unpackChunksFromSession(session.world_map);
+        // this._world.unpackChunksFromSession(session.world_map);
       }
       requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
     }

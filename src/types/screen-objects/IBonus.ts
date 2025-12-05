@@ -4,11 +4,11 @@ import { IDrawable } from "./IDrawable";
 import { IScreenObject } from "./IScreenObject";
 import { IUpdatable } from "./IUpdatable";
 
-export type BonusType = 'aid_kit' | 'goggles';export interface IBonus extends IScreenObject, IDrawable, IUpdatable {
-    type: BonusType;
+export type BonusType = "aid_kit" | "goggles";
+export interface IBonus extends IScreenObject, IDrawable {
+  type: BonusType;
 }
 
 export interface IBonusFactory {
-    new(world: IWorld, point: IPoint, type: BonusType, id?: string): IBonus;
+  new (world: IWorld, point: IPoint, type: BonusType, id?: string): IBonus;
 }
-

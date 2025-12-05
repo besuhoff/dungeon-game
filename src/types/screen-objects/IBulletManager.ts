@@ -1,5 +1,14 @@
+import { IWorld } from "../IWorld";
 import { IBullet } from "./IBullet";
+import { IDrawable } from "./IDrawable";
+import { IUpdatable } from "./IUpdatable";
 
-export interface IBulletManager {
+export interface IBulletManager extends IDrawable {
   registerShot(bullet: IBullet): void;
+  unregisterShot(bulletId: string): void;
+  getBulletById(bulletId: string): IBullet | null;
+}
+
+export interface IBulletManagerFactory {
+  new (world: IWorld): IBulletManager;
 }

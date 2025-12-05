@@ -1,21 +1,21 @@
 export interface IAuthManager {
-    getAuthUrl(): Promise<string>;
-    checkAuthStatus(token: string): Promise<IUserData>;
+  getAuthUrl(): Promise<string>;
+  checkAuthStatus(token: string): Promise<IUserData>;
 }
 
 export interface IUserData {
-    _id: string;
-    username: string;
-    email: string;
-    is_active: boolean;
-    current_session: string;
+  id: string;
+  username: string;
+  email: string;
+  is_active: boolean;
+  current_session: string;
 }
 
 export interface ILeaderboardEntry {
-    name: string;
-    score: number;
+  name: string;
+  score: number;
 }
 
 export interface IAuthResponse {
-    url: string;
+  url: string;
 }

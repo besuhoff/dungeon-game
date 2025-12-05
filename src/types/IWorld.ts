@@ -3,8 +3,13 @@ import { IPlayer } from "./screen-objects/IPlayer";
 import { IBonus, BonusType } from "./screen-objects/IBonus";
 import { IWall } from "./screen-objects/IWall";
 import { IPoint } from "./geometry/IPoint";
-import { SessionChunk, SessionPlayer } from "./session";
 import { IOtherPlayer } from "./screen-objects/IOtherPlayer";
+import {
+  GameStateDeltaMessage,
+  GameStateMessage,
+  Player as PlayerMessage,
+} from "./socketEvents";
+import { SessionPlayer } from "./session";
 
 export interface IWorld {
   player: IPlayer | null;
@@ -18,7 +23,7 @@ export interface IWorld {
   torchRadius: number;
   debug: boolean;
   multiplayerMode: "host" | "guest";
-  initPlayer(position: IPoint, rotation: number, id: string): void;
+  initPlayerFromSession(player: SessionPlayer): void;
   toggleDebug(): void;
   restart(): void;
   togglePause(): void;
@@ -29,11 +34,8 @@ export interface IWorld {
     uiCtx: CanvasRenderingContext2D
   ): void;
   worldToScreenCoordinates(point: IPoint): IPoint;
-  spawnBonus(type: BonusType, point: IPoint): void;
-  removeBonus(bonus: IBonus): void;
-  removeEnemy(enemy: IEnemy): void;
-  addOtherPlayer(player: SessionPlayer): void;
+  addOtherPlayer(player: PlayerMessage): void;
   removeOtherPlayer(playerId: string): void;
-  respawnOtherPlayer(playerId: string): void;
-  unpackChunksFromSession(chunks: Record<string, SessionChunk>): void;
+  applyGameState(delta: GameStateMessage): void;
+  applyGameStateDelta(changeset: GameStateDeltaMessage): void;
 }

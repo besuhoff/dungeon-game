@@ -1,20 +1,20 @@
 import {
   Session,
   CreateSessionRequest,
-  UpdateSessionRequest,
   AddSessionChunksRequest,
   SessionChunk,
 } from "../types/session";
 import { HttpClient } from "./HttpClient";
 import * as config from "../config";
 import { SocketService } from "./SocketService";
-import { IBullet } from "../types/screen-objects/IBullet";
 import {
-  BulletCreatedData,
-  PlayerJoinedData,
-  PlayerLeftData,
-  PlayerRespawnedData,
-  PositionUpdateData,
+  GameStateMessage,
+  GameStateDeltaMessage,
+  InputMessage,
+  MessageType,
+  PlayerLeaveMessage,
+  PlayerJoinMessage,
+  PlayerRespawnMessage,
 } from "../types/socketEvents";
 import { IPlayer } from "../types/screen-objects/IPlayer";
 
@@ -22,14 +22,6 @@ export class SessionManager {
   private static instance: SessionManager;
   private currentSession: Session | null = null;
   private socketService: SocketService;
-  private lastPositionUpdate: number = 0;
-  private readonly POSITION_UPDATE_THROTTLE = 0;
-  private pendingPositionUpdate: {
-    x: number;
-    y: number;
-    rotation: number;
-  } | null = null;
-  private positionUpdateTimeout: NodeJS.Timeout | null = null;
 
   private constructor() {
     this.socketService = SocketService.getInstance();
@@ -49,11 +41,10 @@ export class SessionManager {
   public async startSession(sessionName: string): Promise<Session> {
     const session = await HttpClient.post<Session>("/sessions", {
       name: sessionName,
-      health: config.PLAYER_LIVES,
     } as CreateSessionRequest);
 
     this.currentSession = session;
-    this.socketService.connect(session._id);
+    this.socketService.connect(session.id);
     return session;
   }
 
@@ -62,7 +53,7 @@ export class SessionManager {
       `/sessions/${sessionId}/join`
     );
     this.currentSession = session;
-    this.socketService.connect(session._id);
+    this.socketService.connect(session.id);
     return session;
   }
 
@@ -73,13 +64,14 @@ export class SessionManager {
       throw new Error("No active session");
     }
 
-    const session = await HttpClient.post<Session>(
-      `/sessions/${this.currentSession._id}/chunks`,
-      request
-    );
+    // const session = await HttpClient.post<Session>(
+    //   `/sessions/${this.currentSession.id}/chunks`,
+    //   request
+    // );
 
-    this.currentSession = session;
-    return session;
+    // this.currentSession = session;
+    // return session;
+    return this.currentSession;
   }
 
   public async updateSessionChunk(chunk: SessionChunk): Promise<Session> {
@@ -94,115 +86,15 @@ export class SessionManager {
     }
 
     const session = await HttpClient.get<Session>(
-      `/sessions/${this.currentSession._id}/chunks`
+      `/sessions/${this.currentSession.id}/chunks`
     );
 
     this.currentSession = session;
-    return session;
-  }
-
-  public async updateSession(
-    score: number,
-    kills: number,
-    money: number
-  ): Promise<Session> {
-    if (!this.currentSession) {
-      throw new Error("No active session");
-    }
-
-    const session = await HttpClient.patch<Session>(
-      `/sessions/${this.currentSession._id}`,
-      { score, kills, money } as UpdateSessionRequest
-    );
-
-    this.currentSession = session;
-    return session;
-  }
-
-  public async endSession(): Promise<Session> {
-    if (!this.currentSession) {
-      throw new Error("No active session");
-    }
-
-    const session = await HttpClient.post<Session>(
-      `/sessions/${this.currentSession._id}/end`
-    );
-    this.currentSession = null;
-    this.socketService.disconnect();
     return session;
   }
 
   public getCurrentSession(): Session | null {
     return this.currentSession;
-  }
-
-  public notifyBulletCreated(bullet: IBullet): void {
-    if (!this.currentSession) {
-      console.warn("Attempting to notify about bullet without active session");
-      return;
-    }
-
-    this.socketService.triggerGameAction<BulletCreatedData>(
-      config.WEBSOCKET_ACTIONS.BULLET_CREATED,
-      {
-        x: bullet.x,
-        y: bullet.y,
-        id: bullet.id,
-        velocity: bullet.velocity,
-        isEnemy: bullet.isEnemy,
-        ownerId: bullet.ownerId,
-        date: window.performance.now(),
-      }
-    );
-  }
-
-  notifyPositionUpdate(player: IPlayer): void {
-    if (!this.currentSession) {
-      console.warn(
-        "Attempting to notify about position update without active session"
-      );
-      return;
-    }
-
-    const now = Date.now();
-    const timeSinceLastUpdate = now - this.lastPositionUpdate;
-
-    // Store the current position as pending
-    this.pendingPositionUpdate = {
-      x: player.x,
-      y: player.y,
-      rotation: player.rotation,
-    };
-
-    // If we're within throttle window, schedule the update
-    if (timeSinceLastUpdate < this.POSITION_UPDATE_THROTTLE) {
-      if (!this.positionUpdateTimeout) {
-        this.positionUpdateTimeout = setTimeout(() => {
-          if (this.pendingPositionUpdate) {
-            const { x, y, rotation } = this.pendingPositionUpdate;
-
-            this.socketService.triggerPositionUpdate(x, y, rotation);
-            this.lastPositionUpdate = window.performance.now();
-            this.pendingPositionUpdate = null;
-            this.positionUpdateTimeout = null;
-          }
-        }, this.POSITION_UPDATE_THROTTLE - timeSinceLastUpdate);
-      }
-      return;
-    }
-
-    // If we're outside throttle window, send immediately
-    this.socketService.triggerPositionUpdate(
-      player.x,
-      player.y,
-      player.rotation
-    );
-    this.lastPositionUpdate = window.performance.now();
-    this.pendingPositionUpdate = null;
-    if (this.positionUpdateTimeout) {
-      clearTimeout(this.positionUpdateTimeout);
-      this.positionUpdateTimeout = null;
-    }
   }
 
   public notifyRespawn(player: IPlayer): void {
@@ -211,47 +103,42 @@ export class SessionManager {
       return;
     }
 
-    this.socketService.triggerGameAction<PlayerRespawnedData>(
-      config.WEBSOCKET_ACTIONS.PLAYER_RESPAWNED,
-      {
-        user_id: player.id,
-        date: window.performance.now(),
-      }
-    );
+    this.socketService.emit({
+      type: MessageType.PLAYER_RESPAWN,
+      payload: {
+        oneofKind: "playerRespawn",
+        playerRespawn: PlayerRespawnMessage.create({
+          playerId: player.id,
+        }),
+      },
+    });
   }
 
-  public onBulletCreated(callback: (bullet: BulletCreatedData) => void): void {
-    this.socketService.onGameAction<BulletCreatedData>(
-      config.WEBSOCKET_ACTIONS.BULLET_CREATED,
-      callback
-    );
+  notifyInput(message: InputMessage): void {
+    this.socketService.emit({
+      type: MessageType.INPUT,
+      payload: {
+        oneofKind: "input",
+        input: message,
+      },
+    });
   }
 
-  public onChunksUpdated(callback: (session: Session) => void): void {
-    this.socketService.onGameState(
-      config.WEBSOCKET_GAME_STATE_EVENTS.CHUNKS_UPDATED,
-      callback
-    );
+  public onGameState(callback: (changeset: GameStateMessage) => void): void {
+    this.socketService.onGameState(callback);
   }
 
-  public onPositionUpdate(callback: (data: PositionUpdateData) => void): void {
-    this.socketService.onPositionUpdate(callback);
+  public onGameStateDelta(
+    callback: (changeset: GameStateDeltaMessage) => void
+  ): void {
+    this.socketService.onGameStateDelta(callback);
   }
 
-  public onPlayerJoined(callback: (player: PlayerJoinedData) => void): void {
+  public onPlayerJoined(callback: (message: PlayerJoinMessage) => void): void {
     this.socketService.onPlayerJoined(callback);
   }
 
-  public onPlayerLeft(callback: (player: PlayerLeftData) => void): void {
+  public onPlayerLeft(callback: (message: PlayerLeaveMessage) => void): void {
     this.socketService.onPlayerLeft(callback);
-  }
-
-  public onPlayerRespawned(
-    callback: (data: PlayerRespawnedData) => void
-  ): void {
-    this.socketService.onGameAction<PlayerRespawnedData>(
-      config.WEBSOCKET_ACTIONS.PLAYER_RESPAWNED,
-      callback
-    );
   }
 }

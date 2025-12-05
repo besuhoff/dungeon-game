@@ -159,7 +159,7 @@ function updateSessions(sessions: Session[]) {
       const playerCount = Object.keys(session.players).length;
       const maxPlayers = session.max_players || 4;
       return `
-                <li class="session-item" data-session-id="${session._id}">
+                <li class="session-item" data-session-id="${session.id}">
                     <span class="session-name">"${session.name}" (${session.host.username})</span>
                     <span class="session-players">${playerCount}/${maxPlayers}</span>
                 </li>

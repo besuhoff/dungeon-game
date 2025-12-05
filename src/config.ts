@@ -7,8 +7,8 @@ const ASSETS_FOLDER = "assets";
 export const LOGIN_BUTTON_TEXTURE = `${ASSETS_FOLDER}/login-button.png`;
 export const API_DOMAIN =
   process.env.NODE_ENV === "production"
-    ? "https://dungeon-game-api.onrender.com"
-    : "http://localhost:8000";
+    ? "https://dungeon-game-go.onrender.com"
+    : "http://localhost:8080";
 export const API_BASE_URL = `${API_DOMAIN}/api/v1`;
 
 // Display
@@ -29,6 +29,9 @@ export const COLOR_NIGHT_VISION_FADING = "#006000a0";
 // Bullet settings
 export const BULLET_DAMAGE = 1;
 export const BULLET_SIZE = 8;
+
+// Blood settings
+export const BLOOD_TEXTURE_SIZE = 32;
 
 // Player settings
 export const PLAYER_SPEED = 300; // Units per second
@@ -60,7 +63,6 @@ export const ENEMY_TEXTURE_CENTER = new Point2D(
   26
 );
 export const ENEMY_GUN_END = new Point2D(ENEMY_TEXTURE_SIZE / 2 - 1, 60);
-export const ENEMY_BLOOD_TEXTURE_SIZE = 32;
 export const ENEMY_SHOOT_DELAY = 1; // Seconds between shots
 export const ENEMY_BULLET_SPEED = 240; // Units per second
 export const ENEMY_DEATH_TRACE_TIME = 5; // Seconds the blood stain is visible
@@ -87,7 +89,7 @@ export const TEXTURES = {
   WALL: Assets.wallTexture,
   PLAYER: Assets.playerTexture,
   ENEMY: Assets.enemyTexture,
-  ENEMY_BLOOD: Assets.enemyBloodTexture,
+  BLOOD: Assets.bloodTexture,
   AID_KIT: Assets.aidKitTexture,
   GOGGLES: Assets.gogglesTexture,
   HEART: Assets.heartTexture,
@@ -98,6 +100,7 @@ export const SOUNDS = {
   TORCH: Assets.torchSound,
   GAME_OVER: Assets.gameOverSound,
   PLAYER_HURT: Assets.playerHurtSound,
+  PLAYER_DEAD: Assets.playerDeadSound,
   ENEMY_HURT: Assets.enemyHurtSound,
   PLAYER_BULLET_RECHARGE: Assets.playerBulletRechargeSound,
   BONUS_PICKUP: Assets.bonusPickupSound,
@@ -111,8 +114,4 @@ export const WEBSOCKET_ACTIONS = {
   PLAYER_RESPAWNED: "player:respawned",
   BONUS_CREATED: "bonus:created",
   BONUS_DESTROYED: "bonus:destroyed",
-};
-
-export const WEBSOCKET_GAME_STATE_EVENTS = {
-  CHUNKS_UPDATED: "chunks:updated",
 };

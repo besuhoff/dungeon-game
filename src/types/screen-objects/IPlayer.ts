@@ -1,10 +1,12 @@
+import { Game } from "../../utils/Game";
 import { IPoint } from "../geometry/IPoint";
 import { IWorld } from "../IWorld";
+import { SessionPlayer } from "../session";
+import { Player as PlayerMessage } from "../socketEvents";
 import { IDamageable } from "./IDamageable";
 import { IDrawable } from "./IDrawable";
 import { IKillable } from "./IKillable";
 import { IScreenObject } from "./IScreenObject";
-import { IShooter } from "./IShooter";
 import { IUpdatable } from "./IUpdatable";
 import { IVisor } from "./IVisor";
 
@@ -14,18 +16,18 @@ export interface IPlayer
     IUpdatable,
     IDamageable,
     IKillable,
-    IShooter,
     IVisor {
   recordKill(reward: number): void;
-  handleInput(keys: Set<string>, dt: number): void;
   heal(amount: number): void;
   drawUI(ctx: CanvasRenderingContext2D): void;
   rotation: number;
   money: number;
   kills: number;
   bulletsLeft: number;
+  applyFromGameState(changeset: PlayerMessage): void;
 }
 
 export interface IPlayerFactory {
   new (world: IWorld, point: IPoint, rotation: number, id: string): IPlayer;
+  createFromSessionPlayer(world: IWorld, player: SessionPlayer): IPlayer;
 }

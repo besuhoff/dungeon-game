@@ -4,26 +4,24 @@ import { IPlayer } from "../types/screen-objects/IPlayer";
 import { IBullet } from "../types/screen-objects/IBullet";
 import { IPoint } from "../types/geometry/IPoint";
 import { IWorld } from "../types/IWorld";
-import { Bullet } from "./Bullet";
 import { loadImage } from "../utils/loadImage";
 import { AudioManager } from "../utils/AudioManager";
-import { AuthManager } from "../api/AuthManager";
-import { SessionManager } from "../api/SessionManager";
+import { Player as PlayerMessage } from "../types/socketEvents";
+import { SessionPlayer } from "../types/session";
+import { Point2D } from "../utils/geometry/Point2D";
 
 export class Player extends ScreenObject implements IPlayer {
   private _nightVisionTimer: number = 0;
-  private _speed: number = config.PLAYER_SPEED;
   private _image: HTMLImageElement | null = null;
+  private _imageDead: HTMLImageElement | null = null;
   private _rotation: number = 0;
-  private _rotationSpeed: number = config.PLAYER_ROTATION_SPEED;
   private _bullets: IBullet[] = [];
   private _bulletsLeft: number = config.PLAYER_MAX_BULLETS;
   private _kills: number = 0;
   private _money: number = 0;
 
-  private _shootDelay: number = 0;
   private _invulnerableTimer: number = 0;
-  private _rechargeAccumulator: number = 0;
+  // private _rechargeAccumulator: number = 0;
 
   private _debugData: {
     collisionHits?: { id: string; total: boolean; x: boolean; y: boolean }[];
@@ -54,6 +52,23 @@ export class Player extends ScreenObject implements IPlayer {
     return this._nightVisionTimer;
   }
 
+  static createFromSessionPlayer(
+    world: IWorld,
+    sessionPlayer: SessionPlayer
+  ): IPlayer {
+    const player = new Player(
+      world,
+      new Point2D(sessionPlayer.position.x, sessionPlayer.position.y),
+      sessionPlayer.position.rotation,
+      sessionPlayer.player_id
+    );
+
+    player._lives = sessionPlayer.lives;
+    player._kills = sessionPlayer.kills;
+    player._money = sessionPlayer.money;
+    return player;
+  }
+
   constructor(
     private world: IWorld,
     point: IPoint,
@@ -71,9 +86,12 @@ export class Player extends ScreenObject implements IPlayer {
     audioManager.loadSound(config.SOUNDS.PLAYER_BULLET_RECHARGE);
 
     // Load player sprite
-    const texturePath = config.TEXTURES.PLAYER;
-    loadImage(texturePath).then((img) => {
+    loadImage(config.TEXTURES.PLAYER).then((img) => {
       this._image = img;
+    });
+
+    loadImage(config.TEXTURES.BLOOD).then((img) => {
+      this._imageDead = img;
     });
   }
 
@@ -93,153 +111,14 @@ export class Player extends ScreenObject implements IPlayer {
       .rotateAroundPointCoordinates(this.getPosition(), this._rotation);
   }
 
-  shoot(dt: number): void {
-    if (this._shootDelay > 0 || this._bulletsLeft <= 0) {
-      return;
-    }
-
-    const bulletPoint = this.getGunPoint();
-
-    // Create bullet
-    const bullet = new Bullet(
-      this.world,
-      bulletPoint,
-      this._rotation,
-      false,
-      AuthManager.getInstance().getUserData()?._id
-    );
-
-    SessionManager.getInstance().notifyBulletCreated(bullet);
-
-    this._bullets.push(bullet);
-    this._shootDelay = config.PLAYER_SHOOT_DELAY;
-    this._bulletsLeft--;
-
-    // Play sound
-    AudioManager.getInstance().playSound(config.SOUNDS.BULLET);
-  }
-
-  private move(forward: number): void {
-    if (!this.isAlive()) {
-      return;
-    }
-
-    const collidableObjects = [
-      ...this.world.walls,
-      ...this.world.otherPlayers.filter((player) => player.isAlive()),
-      ...this.world.enemies.filter((enemy) => enemy.isAlive()),
-    ];
-
-    // Convert rotation to radians for math calculations
-    const rotationRad = (this._rotation * Math.PI) / 180;
-
-    // Calculate movement vector based on rotation and delta time
-    let dx = -Math.sin(rotationRad) * forward * this._speed;
-    let dy = Math.cos(rotationRad) * forward * this._speed;
-
-    // Check collisions with adjusted wall positions
-    let collision = false;
-    let collisionX = false;
-    let collisionY = false;
-
-    const collisionRect = this.getCollisionRect(dx, dy);
-    const xCollisionRect = this.getCollisionRect(dx, 0);
-    const yCollisionRect = this.getCollisionRect(0, dy);
-
-    const hits: {
-      id: string;
-      total: boolean;
-      x: boolean;
-      y: boolean;
-      toString: () => string;
-    }[] = [];
-
-    for (const obj of collidableObjects) {
-      const hit = {
-        id: obj.id,
-        total: false,
-        x: false,
-        y: false,
-        toString: function () {
-          return `Object ID: ${this.id}, blocks Direction: ${this.total}, blocks X: ${this.x}, blocks Y: ${this.y}`;
-        },
-      };
-
-      if (
-        obj.checkCollision(
-          collisionRect.left,
-          collisionRect.top,
-          collisionRect.width,
-          collisionRect.height
-        )
-      ) {
-        collision = true;
-        hit.total = true;
-      }
-
-      if (
-        obj.checkCollision(
-          xCollisionRect.left,
-          xCollisionRect.top,
-          xCollisionRect.width,
-          xCollisionRect.height
-        )
-      ) {
-        collisionX = true;
-        hit.x = true;
-      }
-
-      if (
-        obj.checkCollision(
-          yCollisionRect.left,
-          yCollisionRect.top,
-          yCollisionRect.width,
-          yCollisionRect.height
-        )
-      ) {
-        collisionY = true;
-        hit.y = true;
-      }
-
-      if (hit.total) {
-        hits.push(hit);
-      }
-    }
-
-    if (collision) {
-      if (collisionX) dx = 0;
-      if (collisionY) dy = 0;
-    }
-
-    if (dx !== 0 || dy !== 0) {
-      this.moveBy(dx, dy);
-    }
-
-    if (this.world.debug) {
-      this._debugData = {
-        collisionHits: hits,
-        coordinates: {
-          dx,
-          dy,
-        },
-      };
-    }
-  }
-
-  private rotate(angleChange: number): void {
-    this._rotation = (this._rotation - angleChange * this._rotationSpeed) % 360;
-  }
-
   takeDamage(amount: number): void {
-    if (this._invulnerableTimer <= 0) {
-      this._lives -= amount;
-      this._invulnerableTimer = config.PLAYER_INVULNERABILITY_TIME;
-      AudioManager.getInstance().playSound(config.SOUNDS.PLAYER_HURT);
-    }
-  }
-
-  addNightVision(): void {
-    this._nightVisionTimer += config.GOGGLES_ACTIVE_TIME;
+    // if (this._invulnerableTimer <= 0) {
+    this._lives -= amount;
+    // this._invulnerableTimer = config.PLAYER_INVULNERABILITY_TIME;
+    AudioManager.getInstance().playSound(
+      this._lives > 0 ? config.SOUNDS.PLAYER_HURT : config.SOUNDS.PLAYER_DEAD
+    );
+    // }
   }
 
   hasNightVision(): boolean {
@@ -260,31 +139,8 @@ export class Player extends ScreenObject implements IPlayer {
       this._invulnerableTimer = Math.max(0, this._invulnerableTimer - dt);
     }
 
-    if (this._shootDelay > 0) {
-      this._shootDelay = Math.max(0, this._shootDelay - dt);
-    }
-
     if (this._nightVisionTimer > 0) {
       this._nightVisionTimer = Math.max(0, this._nightVisionTimer - dt);
-    }
-
-    this._bullets
-      .filter((bullet) => bullet.active)
-      .forEach((bullet) => {
-        bullet.update(dt);
-      });
-
-    // Recharge bullets
-    if (this._bulletsLeft < config.PLAYER_MAX_BULLETS) {
-      this._rechargeAccumulator += dt;
-      if (this._rechargeAccumulator >= config.PLAYER_BULLET_RECHARGE_TIME) {
-        this._rechargeAccumulator -= config.PLAYER_BULLET_RECHARGE_TIME;
-        this._bulletsLeft++;
-        AudioManager.getInstance().playSound(
-          config.SOUNDS.PLAYER_BULLET_RECHARGE,
-          0.5
-        );
-      }
     }
   }
 
@@ -293,7 +149,7 @@ export class Player extends ScreenObject implements IPlayer {
       bullet.draw(ctx, uiCtx);
     });
 
-    if (!this._image) {
+    if (!this._image || !this._imageDead) {
       return;
     }
 
@@ -310,14 +166,18 @@ export class Player extends ScreenObject implements IPlayer {
     ctx.translate(screenPoint.x, screenPoint.y);
 
     if ((this._invulnerableTimer <= 0 || shouldBlink) && !this.world.gameOver) {
+      const image = this.isAlive() ? this._image : this._imageDead;
+      const imageSize = this.isAlive()
+        ? config.PLAYER_TEXTURE_SIZE
+        : config.BLOOD_TEXTURE_SIZE;
       // Draw player sprite
       ctx.rotate((this._rotation * Math.PI) / 180);
       ctx.drawImage(
-        this._image,
+        this.isAlive() ? this._image : this._imageDead,
         texturePoint.x,
         texturePoint.y,
-        config.PLAYER_TEXTURE_SIZE,
-        config.PLAYER_TEXTURE_SIZE
+        imageSize,
+        imageSize
       );
       ctx.rotate((-this._rotation * Math.PI) / 180);
     }
@@ -380,29 +240,6 @@ export class Player extends ScreenObject implements IPlayer {
     }
   }
 
-  handleInput(keys: Set<string>, dt: number): void {
-    // Handle movement
-    if (keys.has("KeyW") || keys.has("ArrowUp")) {
-      this.move(dt);
-    }
-    if (keys.has("KeyS") || keys.has("ArrowDown")) {
-      this.move(-dt);
-    }
-
-    // Handle rotation
-    if (keys.has("KeyA") || keys.has("ArrowLeft")) {
-      this.rotate(dt);
-    }
-    if (keys.has("KeyD") || keys.has("ArrowRight")) {
-      this.rotate(-dt);
-    }
-
-    // Handle shooting
-    if (keys.has(" ")) {
-      this.shoot(dt);
-    }
-  }
-
   isAlive(): boolean {
     return this._lives > 0;
   }
@@ -420,5 +257,31 @@ export class Player extends ScreenObject implements IPlayer {
 
   isInvulnerable(): boolean {
     return this._invulnerableTimer > 0;
+  }
+
+  applyFromGameState(changeset: PlayerMessage): void {
+    if (changeset.position) {
+      this.getPosition().setTo(changeset.position.x, changeset.position.y);
+
+      this._rotation = changeset.rotation;
+    }
+
+    if (this._lives > changeset.lives) {
+      this.takeDamage(this._lives - changeset.lives);
+    } else if (this._lives < changeset.lives) {
+      this.heal(changeset.lives - this._lives);
+    }
+
+    this._money = changeset.money;
+    this._kills = changeset.kills;
+    if (this._bulletsLeft < changeset.bulletsLeft) {
+      AudioManager.getInstance().playSound(
+        config.SOUNDS.PLAYER_BULLET_RECHARGE,
+        0.5
+      );
+    }
+    this._bulletsLeft = changeset.bulletsLeft;
+    this._invulnerableTimer = changeset.invulnerableTimer;
+    this._nightVisionTimer = changeset.nightVisionTimer;
   }
 }

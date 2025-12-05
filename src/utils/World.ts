@@ -15,19 +15,27 @@ import { loadImage } from "./loadImage";
 import { Point2D } from "./geometry/Point2D";
 import { AudioManager } from "./AudioManager";
 import { SessionManager } from "../api/SessionManager";
-import { SessionChunk, SessionObject, SessionPlayer } from "../types/session";
+import { Player as PlayerMessage } from "../types/socketEvents";
 import {
   IOtherPlayer,
   IOtherPlayerFactory,
 } from "../types/screen-objects/IOtherPlayer";
-import { BulletManager } from "../api/BulletManager";
+import {
+  InputMessage,
+  GameStateDeltaMessage,
+  GameStateMessage,
+} from "../types/socketEvents";
+import {
+  IBulletManager,
+  IBulletManagerFactory,
+} from "../types/screen-objects/IBulletManager";
+import { IBulletFactory } from "../types/screen-objects/IBullet";
+import { SessionPlayer } from "../types/session";
 
 export class World implements IWorld {
-  private readonly CHUNK_SIZE = 800; // Same as screen width for now
+  private readonly CHUNK_SIZE = 2000; // Same as screen width for now
   private _player: IPlayer | null = null;
   private _otherPlayers: Record<string, IOtherPlayer> = {};
-  private _otherPlayersPositionUpdateMap: WeakMap<IOtherPlayer, number> =
-    new WeakMap();
 
   private _enemies: IEnemy[] = [];
   private _walls: IWall[] = [];
@@ -39,13 +47,22 @@ export class World implements IWorld {
   private chunks: Map<string, IChunk> = new Map();
   private generatedChunks: Set<string> = new Set();
   private _cameraPoint: IPoint = new Point2D(0, 0);
-  private _currentPlayerChunk: IPoint | null = null;
   private _torchRadius: number = config.TORCH_RADIUS;
   private _debug = false;
   private crowdednessFactor = 5;
 
   private _sessionManager = SessionManager.getInstance();
-  private _bulletManager: BulletManager;
+  private _bulletManager: IBulletManager;
+  private _lastChangesetTimestamp: number = 0;
+
+  private _previousInputState: InputMessage = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    shoot: false,
+  };
+  private _inputStateSubmitTimestamp: number = 0;
 
   get debug(): boolean {
     return this._debug;
@@ -99,16 +116,14 @@ export class World implements IWorld {
     return this._multiplayerMode;
   }
 
-  get bulletManager(): BulletManager {
-    return this._bulletManager;
-  }
-
   constructor(
     private _Player: IPlayerFactory,
     private _Enemy: IEnemyFactory,
     private _Wall: IWallFactory,
     private _Bonus: IBonusFactory,
     private _OtherPlayer: IOtherPlayerFactory,
+    private _Bullet: IBulletFactory,
+    private _BulletManager: IBulletManagerFactory,
     private _multiplayerMode: "host" | "guest"
   ) {
     // Load sounds
@@ -123,67 +138,29 @@ export class World implements IWorld {
       this.floorTexture = img;
     });
 
-    this._bulletManager = new BulletManager();
+    this._bulletManager = new this._BulletManager(this);
   }
 
-  initPlayer(position: IPoint, rotation: number, id: string): void {
-    this._player = new this._Player(this, position, rotation, id);
+  initPlayerFromSession(player: SessionPlayer): void {
+    this._player = this._Player.createFromSessionPlayer(this, player);
   }
 
-  addOtherPlayer(player: SessionPlayer): void {
-    const point = new Point2D(player.position.x, player.position.y);
-    this._otherPlayers[player.player_id] = new this._OtherPlayer(
+  addOtherPlayer(player: PlayerMessage): void {
+    const point = new Point2D(player.position!.x, player.position!.y);
+    const otherPlayer = new this._OtherPlayer(
       this,
       point,
-      player.position.rotation,
-      player.player_id,
-      player.name
+      player.rotation,
+      player.id,
+      player.username
     );
+
+    this._otherPlayers[player.id] = otherPlayer;
+    otherPlayer.applyFromGameState(player);
   }
 
   removeOtherPlayer(playerId: string): void {
     delete this._otherPlayers[playerId];
-  }
-
-  respawnOtherPlayer(playerId: string): void {
-    const otherPlayer = this._otherPlayers[playerId];
-    if (!otherPlayer) {
-      return;
-    }
-
-    this._otherPlayers[playerId] = new this._OtherPlayer(
-      this,
-      otherPlayer.getPosition(),
-      otherPlayer.rotation,
-      otherPlayer.id,
-      otherPlayer.name
-    );
-
-    AudioManager.getInstance().playSound(config.SOUNDS.SPAWN);
-  }
-
-  updateOtherPlayerPosition(
-    playerId: string,
-    position: IPoint,
-    rotation: number,
-    date: number
-  ): void {
-    const player = this._otherPlayers[playerId];
-    if (!player) {
-      return;
-    }
-
-    if (this._otherPlayersPositionUpdateMap.has(player)) {
-      const lastUpdateDate = this._otherPlayersPositionUpdateMap.get(player)!;
-      if (date <= lastUpdateDate) {
-        return;
-      }
-    }
-
-    this._otherPlayersPositionUpdateMap.set(player, date);
-
-    player.moveTo(position);
-    player.rotate(rotation);
   }
 
   private getChunkKey(x: number, y: number): string {
@@ -315,217 +292,22 @@ export class World implements IWorld {
     });
   }
 
-  public unpackChunksFromSession(chunks: Record<string, SessionChunk>): void {
-    for (const chunk of Object.values(chunks)) {
-      this.generatedChunks.add(this.getChunkKey(chunk.x, chunk.y));
-      this.chunks.set(
-        this.getChunkKey(chunk.x, chunk.y),
-        this.sessionChunkToChunk(chunk)
-      );
-    }
-  }
-
-  private sessionChunkToChunk(chunk: SessionChunk): IChunk {
-    const wallMap = new Map<string, IWall>();
-
-    return {
-      x: chunk.x,
-      y: chunk.y,
-      walls: Object.values(chunk.objects)
-        .filter((object) => object.type === "wall")
-        .map((object) => {
-          const point = new Point2D(object.x, object.y);
-          const width = object.properties.width;
-          const height = object.properties.height;
-          const orientation = object.properties.orientation;
-
-          const wall = new this._Wall(
-            this,
-            point,
-            width,
-            height,
-            orientation,
-            object.object_id
-          );
-
-          wallMap.set(`${object.properties.id}`, wall);
-
-          return wall;
-        }),
-      enemies: Object.values(chunk.objects)
-        .filter((object) => object.type === "enemy")
-        .map((object) => {
-          const enemy = new this._Enemy(
-            this,
-            wallMap.get(`${object.properties.wall_id}`)!,
-            [],
-            object.object_id
-          );
-          enemy.getPosition().setTo(object.x, object.y);
-          if (object.properties.dead) {
-            enemy.die(false);
-          }
-
-          return enemy;
-        }),
-      bonuses: Object.values(chunk.objects)
-        .filter((object) => object.type === "bonus")
-        .map((object) => {
-          return new this._Bonus(
-            this,
-            new Point2D(object.x, object.y),
-            object.properties.type,
-            object.object_id
-          );
-        }),
-    };
-  }
-
-  private chunkToSessionChunk(chunk: IChunk): SessionChunk {
-    return {
-      chunk_id: this.getChunkKey(chunk.x, chunk.y),
-      x: chunk.x,
-      y: chunk.y,
-      objects: chunk.walls
-        .map(
-          (wall): SessionObject => ({
-            object_id: wall.id,
-            type: "wall",
-            x: wall.x,
-            y: wall.y,
-            properties: {
-              id: wall.id,
-              width: wall.width,
-              height: wall.height,
-              orientation: wall.orientation,
-            },
-          })
-        )
-        .concat(
-          chunk.enemies.map(
-            (enemy): SessionObject => ({
-              object_id: enemy.id,
-              type: "enemy",
-              x: enemy.x,
-              y: enemy.y,
-              properties: {
-                wall_id: enemy.wall.id,
-                width: enemy.width,
-                height: enemy.height,
-                rotation: enemy.rotation,
-                dead: !enemy.isAlive(),
-              },
-            })
-          )
-        )
-        .concat(
-          chunk.bonuses.map(
-            (bonus): SessionObject => ({
-              object_id: bonus.id,
-              type: "bonus",
-              x: bonus.x,
-              y: bonus.y,
-              properties: {
-                type: bonus.type,
-              },
-            })
-          )
-        )
-        .reduce(
-          (acc, object: SessionObject) => {
-            acc[object.object_id] = object;
-            return acc;
-          },
-          {} as Record<string, SessionObject>
-        ),
-    };
-  }
-
-  private updateChunks(): void {
-    if (!this._player || this.paused) {
-      return;
-    }
-
-    // Get current chunk coordinates
-    const chunkPoint = this.getPlayerChunkLeftTop();
-    if (
-      this._currentPlayerChunk &&
-      chunkPoint.equals(this._currentPlayerChunk)
-    ) {
-      return;
-    }
-
-    this._currentPlayerChunk = chunkPoint.clone();
-
-    const updates: IChunk[] = [];
-
-    // Generate walls for current and adjacent chunks
-    const walls: IWall[] = [];
-    const enemies: IEnemy[] = [];
-    const bonuses: IBonus[] = [];
-
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const currentChunkPoint = chunkPoint.movedBy(dx, dy);
-        const chunkKey = this.getChunkKey(
-          currentChunkPoint.x,
-          currentChunkPoint.y
-        );
-
-        if (!this.generatedChunks.has(chunkKey)) {
-          this.generateWallsForChunk(currentChunkPoint);
-          updates.push(this.chunks.get(chunkKey)!);
-        }
-
-        const chunk = this.chunks.get(chunkKey)!;
-        walls.push(...chunk.walls);
-        enemies.push(...chunk.enemies);
-        bonuses.push(...chunk.bonuses);
-      }
-    }
-
-    this._walls = walls;
-    this._enemies = enemies;
-    this._bonuses = bonuses;
-
-    if (updates.length) {
-      this._sessionManager.addSessionChunks({
-        chunks: updates.map((chunk) => this.chunkToSessionChunk(chunk)),
-      });
-    }
-  }
-
   update(dt: number): void {
     if (this.gameOver || this.paused) return;
 
     // Update player
     if (this._player) {
-      // Update chunks based on player position, also cache nearby objects
-      this.updateChunks();
-
       this._player.update(dt);
 
       // Update camera position
       this._cameraPoint = this._player.getPosition().clone();
     }
 
-    this.otherPlayers.forEach((otherPlayer) => {
-      otherPlayer.update(dt);
-    });
-
-    if (this._multiplayerMode === "host") {
-      // Update enemies
-      this._enemies.forEach((enemy) => enemy.update(dt));
-
-      // Check bonus pickups
-      this._bonuses.forEach((bonus) => bonus.update(dt));
-    }
-
-    this._bulletManager.update(dt);
-
     // Check win/lose conditions
     if (this._player && !this._player.isAlive()) {
-      this.endGame();
+      setTimeout(() => {
+        this.endGame();
+      }, 1000);
     }
   }
 
@@ -624,7 +406,7 @@ export class World implements IWorld {
 
     const players = [
       this._player,
-      ...this.otherPlayers.filter((p) => !p.hasNightVision()),
+      ...this.otherPlayers.filter((p) => p.isAlive() && !p.hasNightVision()),
     ];
 
     const torchRadius =
@@ -667,16 +449,30 @@ export class World implements IWorld {
       return;
     }
 
-    const currentPlayerPosition = this._player.getPosition().clone();
-    const currentPlayerRotation = this._player.rotation;
-
-    this._player.handleInput(keys, dt);
+    const forward = keys.has("KeyW") || keys.has("ArrowUp");
+    const backward = keys.has("KeyS") || keys.has("ArrowDown");
+    const left = keys.has("KeyA") || keys.has("ArrowLeft");
+    const right = keys.has("KeyD") || keys.has("ArrowRight");
+    const shoot = keys.has(" ");
+    const now = Date.now();
 
     if (
-      !currentPlayerPosition.equals(this._player.getPosition()) ||
-      currentPlayerRotation !== this._player.rotation
+      forward !== this._previousInputState.forward ||
+      backward !== this._previousInputState.backward ||
+      left !== this._previousInputState.left ||
+      right !== this._previousInputState.right ||
+      shoot !== this._previousInputState.shoot ||
+      now - this._inputStateSubmitTimestamp > 1000
     ) {
-      this._sessionManager.notifyPositionUpdate(this._player);
+      this._sessionManager.notifyInput({
+        forward,
+        backward,
+        left,
+        right,
+        shoot,
+      });
+      this._previousInputState = { forward, backward, left, right, shoot };
+      this._inputStateSubmitTimestamp = now;
     }
   }
 
@@ -685,14 +481,7 @@ export class World implements IWorld {
   }
 
   restart(): void {
-    this._gameOver = false;
-    this._player = new this._Player(
-      this,
-      this._player!.getPosition(),
-      this._player!.rotation,
-      this._player!.id
-    );
-    this._sessionManager.notifyRespawn(this._player);
+    this._sessionManager.notifyRespawn(this._player!);
   }
 
   private drawUI(ctx: CanvasRenderingContext2D): void {
@@ -781,7 +570,7 @@ export class World implements IWorld {
         config.SCREEN_HEIGHT - 108
       );
       ctx.fillText(
-        `Session ID: ${this._sessionManager.getCurrentSession()?._id}`,
+        `Session ID: ${this._sessionManager.getCurrentSession()?.id}`,
         10,
         config.SCREEN_HEIGHT - 122
       );
@@ -793,46 +582,213 @@ export class World implements IWorld {
     }
   }
 
-  spawnBonus(type: BonusType, point: IPoint): void {
-    const bonus = new this._Bonus(this, point, type);
-    const bonusChunkPoint = this.getChunkLeftTop(point);
-    const bonusChunk = this.chunks.get(
-      this.getChunkKey(bonusChunkPoint.x, bonusChunkPoint.y)
-    )!;
+  applyGameState(state: GameStateMessage): void {
+    for (const playerData of Object.values(state.players)) {
+      if (playerData.id === this._player?.id) {
+        this._player.applyFromGameState(playerData);
+        continue;
+      }
 
-    bonusChunk.bonuses.push(bonus);
-    this._bonuses.push(bonus);
+      if (!this._otherPlayers[playerData.id]) {
+        this.addOtherPlayer(playerData);
+      }
+    }
 
-    this._sessionManager.updateSessionChunk(
-      this.chunkToSessionChunk(bonusChunk)
-    );
+    for (const wallData of Object.values(state.walls)) {
+      const wall = this._walls.find((w) => w.id === wallData.id);
+      if (!wall) {
+        this._walls.push(
+          new this._Wall(
+            this,
+            new Point2D(wallData.position!.x, wallData.position!.y),
+            wallData.width,
+            wallData.height,
+            wallData.orientation as "horizontal" | "vertical",
+            wallData.id
+          )
+        );
+      }
+    }
+
+    for (const enemyData of Object.values(state.enemies)) {
+      const enemy = this._enemies.find((e) => e.id === enemyData.id);
+      if (enemy) {
+        enemy.applyFromGameState(enemyData);
+      } else {
+        this._enemies.push(
+          new this._Enemy(
+            this,
+            this._walls.find((wall) => wall.id === enemyData.wallId)!,
+            [],
+            enemyData.id
+          )
+        );
+      }
+    }
+
+    for (const bonusData of Object.values(state.bonuses)) {
+      const bonus = this._bonuses.find((b) => b.id === bonusData.id);
+      if (!bonus) {
+        this._bonuses.push(
+          new this._Bonus(
+            this,
+            new Point2D(bonusData.position!.x, bonusData.position!.y),
+            bonusData.type as BonusType,
+            bonusData.id
+          )
+        );
+      }
+    }
   }
 
-  removeBonus(bonus: IBonus): void {
-    const bonusChunkPoint = this.getChunkLeftTop(bonus.getPosition());
-    const bonusChunk = this.chunks.get(
-      this.getChunkKey(bonusChunkPoint.x, bonusChunkPoint.y)
-    )!;
+  applyGameStateDelta(changeset: GameStateDeltaMessage): void {
+    if (changeset.timestamp <= this._lastChangesetTimestamp) {
+      return;
+    }
 
-    bonusChunk.bonuses = bonusChunk.bonuses.filter((b) => b.id !== bonus.id);
-    this._bonuses = this._bonuses.filter((b) => b.id !== bonus.id);
+    this._lastChangesetTimestamp = Number(changeset.timestamp);
+    const hadNoBullets = this._player ? this._player.bulletsLeft === 0 : false;
 
-    this._sessionManager.updateSessionChunk(
-      this.chunkToSessionChunk(bonusChunk)
-    );
-  }
+    for (const updatedPlayer of Object.values(changeset.updatedPlayers)) {
+      if (updatedPlayer.id === this._player?.id) {
+        if (updatedPlayer.isAlive && !this._player.isAlive()) {
+          AudioManager.getInstance().playSound(config.SOUNDS.SPAWN);
+          this._gameOver = false;
+        }
+        this._player.applyFromGameState(updatedPlayer);
+        continue;
+      }
 
-  removeEnemy(enemy: IEnemy): void {
-    const enemyChunkPoint = this.getChunkLeftTop(enemy.wall.getPosition());
-    const enemyChunk = this.chunks.get(
-      this.getChunkKey(enemyChunkPoint.x, enemyChunkPoint.y)
-    )!;
+      if (!this._otherPlayers[updatedPlayer.id]) {
+        this.addOtherPlayer(updatedPlayer);
+        continue;
+      }
 
-    enemyChunk.enemies = enemyChunk.enemies.filter((e) => e.id !== enemy.id);
-    this._enemies = this._enemies.filter((e) => e.id !== enemy.id);
+      this._otherPlayers[updatedPlayer.id].applyFromGameState(updatedPlayer);
+    }
 
-    this._sessionManager.updateSessionChunk(
-      this.chunkToSessionChunk(enemyChunk)
-    );
+    for (const removedPlayerId of changeset.removedPlayers) {
+      this.removeOtherPlayer(removedPlayerId);
+    }
+
+    for (const updatedWall of Object.values(changeset.updatedWalls)) {
+      const wall = this._walls.find((w) => w.id === updatedWall.id);
+      if (!wall) {
+        this._walls.push(
+          new this._Wall(
+            this,
+            new Point2D(updatedWall.position!.x, updatedWall.position!.y),
+            updatedWall.width,
+            updatedWall.height,
+            updatedWall.orientation as "horizontal" | "vertical",
+            updatedWall.id
+          )
+        );
+      }
+    }
+
+    for (const removedWallId of changeset.removedWalls) {
+      this._walls = this._walls.filter((w) => w.id !== removedWallId);
+    }
+
+    for (const updatedEnemy of Object.values(changeset.updatedEnemies)) {
+      const enemy = this._enemies.find((e) => e.id === updatedEnemy.id);
+      if (enemy) {
+        enemy.applyFromGameState(updatedEnemy);
+      } else {
+        const wall = this._walls.find(
+          (wall) => wall.id === updatedEnemy.wallId
+        );
+        if (!wall) {
+          console.log(
+            `Error: Wall ${updatedEnemy.wallId} is undefined for Enemy ${updatedEnemy.id}`
+          );
+          continue;
+        }
+
+        this._enemies.push(new this._Enemy(this, wall!, [], updatedEnemy.id));
+      }
+    }
+
+    for (const removedEnemyId of changeset.removedEnemies) {
+      this._enemies = this._enemies.filter((e) => e.id !== removedEnemyId);
+    }
+
+    for (const updatedBonus of Object.values(changeset.updatedBonuses)) {
+      if (updatedBonus.pickedUpBy) {
+        this._bonuses = this._bonuses.filter((b) => b.id !== updatedBonus.id);
+        if (updatedBonus.pickedUpBy === this._player?.id) {
+          AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);
+        }
+
+        continue;
+      }
+
+      const bonus = this._bonuses.find((b) => b.id === updatedBonus.id);
+      if (!bonus) {
+        this._bonuses.push(
+          new this._Bonus(
+            this,
+            new Point2D(updatedBonus.position!.x, updatedBonus.position!.y),
+            updatedBonus.type as BonusType,
+            updatedBonus.id
+          )
+        );
+        continue;
+      }
+    }
+
+    for (const bulletData of Object.values(changeset.updatedBullets)) {
+      const existingBullet = this._bulletManager.getBulletById(bulletData.id);
+      if (existingBullet) {
+        existingBullet
+          .getPosition()
+          .setTo(bulletData.position!.x, bulletData.position!.y);
+        continue;
+      }
+
+      if (
+        bulletData.ownerId === this._player?.id &&
+        hadNoBullets &&
+        this._player.bulletsLeft === 0
+      ) {
+        // Player has just recharged their bullets
+        AudioManager.getInstance().playSound(
+          config.SOUNDS.PLAYER_BULLET_RECHARGE,
+          0.5
+        );
+      }
+
+      this._bulletManager.registerShot(
+        new this._Bullet(
+          this,
+          new Point2D(bulletData.position!.x, bulletData.position!.y),
+          0,
+          bulletData.isEnemy,
+          bulletData.ownerId,
+          bulletData.id
+        )
+      );
+    }
+
+    for (const bulletData of Object.values(changeset.removedBullets)) {
+      if (!this._bulletManager.getBulletById(bulletData.id)) {
+        AudioManager.getInstance().playSound(config.SOUNDS.BULLET);
+        if (
+          bulletData.ownerId === this._player?.id &&
+          hadNoBullets &&
+          this._player.bulletsLeft === 0
+        ) {
+          // Player has just recharged their bullets
+          AudioManager.getInstance().playSound(
+            config.SOUNDS.PLAYER_BULLET_RECHARGE,
+            0.5
+          );
+        }
+        continue;
+      }
+
+      this._bulletManager.unregisterShot(bulletData.id);
+    }
   }
 }

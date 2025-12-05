@@ -7,6 +7,7 @@ import { loadImage } from "../utils/loadImage";
 import { AudioManager } from "../utils/AudioManager";
 import { IOtherPlayer } from "../types/screen-objects/IOtherPlayer";
 import { Point2D } from "../utils/geometry/Point2D";
+import { Player as PlayerMessage } from "../types/socketEvents";
 
 export class OtherPlayer extends ScreenObject implements IOtherPlayer {
   private _image: HTMLImageElement | null = null;
@@ -58,7 +59,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     });
 
     // Load blood texture
-    loadImage(config.TEXTURES.ENEMY_BLOOD).then((img) => {
+    loadImage(config.TEXTURES.BLOOD).then((img) => {
       this._bloodImage = img;
     });
   }
@@ -69,18 +70,6 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       .movedByPointCoordinates(config.PLAYER_TEXTURE_CENTER.inverted())
       .moveByPointCoordinates(config.PLAYER_GUN_END)
       .rotateAroundPointCoordinates(this.getPosition(), this._rotation);
-  }
-
-  registerShot(bullet: IBullet): void {
-    this._bullets.push(bullet);
-
-    // Play sound
-    const distance = this.getPosition().distanceTo(
-      this.world.player!.getPosition()
-    );
-    const maxDistance = this.world.torchRadius * 2;
-    const volume = distance >= maxDistance ? 0 : 1 - distance / maxDistance;
-    AudioManager.getInstance().playSound(config.SOUNDS.BULLET, volume);
   }
 
   moveTo(point: IPoint): void {
@@ -136,9 +125,9 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
     const screenPoint = this.world.worldToScreenCoordinates(this.getPosition());
     let shouldDraw = true;
 
-    if (this.hasNightVision() && !this.world.player.hasNightVision()) {
+    if (!this.world.player.hasNightVision()) {
       const distance = this.getPosition().distanceTo(
-        this.world.player.getPosition()
+        this.world.player.getTorchPoint()
       );
       shouldDraw = distance <= this.world.torchRadius + this.width;
     }
@@ -165,7 +154,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       ctx.rotate((this._rotation * Math.PI) / 180);
       const textureSize = !this.dead
         ? config.PLAYER_TEXTURE_SIZE
-        : config.ENEMY_BLOOD_TEXTURE_SIZE;
+        : config.BLOOD_TEXTURE_SIZE;
       const texturePoint = !this.dead
         ? config.PLAYER_TEXTURE_CENTER.inverted()
         : new Point2D(-textureSize / 2, -textureSize / 2);
@@ -292,5 +281,14 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       .movedByPointCoordinates(config.PLAYER_TEXTURE_CENTER.inverted())
       .moveByPointCoordinates(config.PLAYER_TORCH_POINT)
       .rotateAroundPointCoordinates(this.getPosition(), this._rotation);
+  }
+
+  applyFromGameState(player: PlayerMessage): void {
+    this._point.setTo(player.position!.x, player.position!.y);
+    this._rotation = player.rotation;
+    this._lives = player.lives;
+    this.dead = !player.isAlive;
+    this._invulnerableTimer = player.invulnerableTimer;
+    this._nightVisionTimer = player.nightVisionTimer;
   }
 }

@@ -1,22 +1,32 @@
-import { io, Socket } from "socket.io-client";
 import * as config from "../config";
 import { AuthManager } from "./AuthManager";
 import {
-  PlayerJoinedData,
-  PlayerLeftData,
-  PositionUpdateData,
+  GameStateMessage,
+  GameStateDeltaMessage,
+  MessageType,
+  GameMessage,
+  PlayerJoinMessage,
+  PlayerLeaveMessage,
 } from "../types/socketEvents";
 
 export class SocketService {
   private static instance: SocketService;
-  private socket: Socket | null = null;
-  private _gameStateHandlers: Map<string, (data: any) => void> = new Map();
-  private _gameActionHandlers: Map<string, (data: any) => void> = new Map();
-  private _positionUpdateHandler: ((data: PositionUpdateData) => void) | null =
+  private socket: WebSocket | null = null;
+  private _gameStateHandler: ((changeset: GameStateMessage) => void) | null =
     null;
-  private _playerJoinedHandler: ((data: PlayerJoinedData) => void) | null =
+  private _gameStateDeltaHandler:
+    | ((changeset: GameStateDeltaMessage) => void)
+    | null = null;
+  private _playerJoinedHandler: ((message: PlayerJoinMessage) => void) | null =
     null;
-  private _playerLeftHandler: ((data: PlayerLeftData) => void) | null = null;
+  private _playerLeftHandler: ((message: PlayerLeaveMessage) => void) | null =
+    null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectDelay: number = 1000;
+  private sessionId: string | null = null;
+  private messageQueue: GameMessage[] = [];
+  private binaryMode: boolean = false;
 
   private constructor() {}
 
@@ -27,125 +37,143 @@ export class SocketService {
     return SocketService.instance;
   }
 
-  public connect(sessionId: string): Socket {
-    if (this.socket) {
-      this.socket.disconnect();
+  public connect(sessionId: string): WebSocket {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.close();
     }
 
-    this.socket = io(config.API_DOMAIN, {
-      query: {
-        sessionId,
-        token: AuthManager.getInstance().getToken(),
-      },
-      path: "/ws/socket.io",
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
+    this.sessionId = sessionId;
+    const token = AuthManager.getInstance().getToken();
+    const wsProtocol = config.API_DOMAIN.startsWith("https") ? "wss" : "ws";
+    const wsUrl = config.API_DOMAIN.replace(/^https?:\/\//, "");
+    const url = `${wsProtocol}://${wsUrl}/ws?sessionId=${sessionId}&token=${token}&protocol=${this.binaryMode ? "binary" : "json"}`;
 
+    this.socket = new WebSocket(url);
+    if (this.binaryMode) {
+      this.socket.binaryType = "arraybuffer";
+    }
     this.setupEventListeners();
     return this.socket;
   }
 
   public disconnect(): void {
     if (this.socket) {
-      this.socket.disconnect();
+      this.socket.close();
       this.socket = null;
+      this.sessionId = null;
+      this.messageQueue = [];
     }
   }
 
-  public getSocket(): Socket | null {
+  public getSocket(): WebSocket | null {
     return this.socket;
   }
 
-  public emit(event: string, data: any): void {
-    if (!this.socket) {
+  public emit(message: GameMessage): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       console.warn("Attempting to emit without socket connection");
-      return;
-    }
-    this.socket.emit(event, data);
-  }
-
-  public triggerGameAction<T>(type: string, data: T): void {
-    if (!this.socket) {
-      console.warn(
-        "Attempting to trigger game action without socket connection"
-      );
-      return;
-    }
-    this.socket.emit("game_action", { type, data });
-  }
-
-  public triggerPositionUpdate(x: number, y: number, rotation: number): void {
-    if (!this.socket) {
-      console.warn(
-        "Attempting to trigger position update without socket connection"
-      );
+      this.messageQueue.push(message);
       return;
     }
 
-    this.socket.emit("position_update", {
-      position: { x, y, rotation },
-      date: window.performance.now(),
-    });
+    this.socket.send(GameMessage.toJsonString(message));
   }
 
   private setupEventListeners(): void {
     if (!this.socket) return;
 
-    this.socket.on("connect", () => {
-      console.log("Connected to socket server");
-    });
+    this.socket.onopen = () => {
+      console.log("Connected to WebSocket server");
+      this.reconnectAttempts = 0;
 
-    this.socket.on("disconnect", () => {
-      console.log("Disconnected from socket server");
-    });
-
-    this.socket.on("error", (error: any) => {
-      console.error("Socket error:", error);
-    });
-
-    this.socket.on("game_action", (data: any) => {
-      if (this._gameActionHandlers.has(data.action.type)) {
-        this._gameActionHandlers.get(data.action.type)?.(data.action.data);
+      // Send queued messages
+      while (this.messageQueue.length > 0) {
+        const message = this.messageQueue.shift();
+        if (message) {
+          this.emit(message);
+        }
       }
-    });
+    };
 
-    this.socket.on("game_state", (data: any) => {
-      if (this._gameStateHandlers.has(data.type)) {
-        this._gameStateHandlers.get(data.type)?.(data.data);
+    this.socket.onclose = (event) => {
+      console.log(
+        "Disconnected from WebSocket server",
+        event.code,
+        event.reason
+      );
+
+      // Attempt to reconnect if not closed intentionally
+      if (
+        event.code !== 1000 &&
+        this.reconnectAttempts < this.maxReconnectAttempts &&
+        this.sessionId
+      ) {
+        this.reconnectAttempts++;
+        console.log(
+          `Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
+        );
+        setTimeout(() => {
+          if (this.sessionId) {
+            this.connect(this.sessionId);
+          }
+        }, this.reconnectDelay * this.reconnectAttempts);
       }
-    });
+    };
 
-    this.socket.on("position_update", (data: PositionUpdateData) => {
-      this._positionUpdateHandler?.(data);
-    });
+    this.socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
 
-    this.socket.on("player_joined", (data: PlayerJoinedData) => {
-      this._playerJoinedHandler?.(data);
-    });
-
-    this.socket.on("player_left", (data: PlayerLeftData) => {
-      this._playerLeftHandler?.(data);
-    });
+    this.socket.onmessage = (event) => {
+      try {
+        const message = this.binaryMode
+          ? GameMessage.fromBinary(new Uint8Array(event.data))
+          : GameMessage.fromJsonString(event.data);
+        this.handleMessage(message);
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    };
   }
 
-  public onGameAction<T>(type: string, callback: (data: T) => void): void {
-    this._gameActionHandlers.set(type, callback);
+  private handleMessage({ payload }: GameMessage): void {
+    switch (payload.oneofKind) {
+      case "gameState":
+        this._gameStateHandler?.(payload.gameState);
+        break;
+
+      case "gameStateDelta":
+        this._gameStateDeltaHandler?.(payload.gameStateDelta);
+        break;
+
+      case "playerJoin":
+        this._playerJoinedHandler?.(payload.playerJoin);
+        break;
+
+      case "playerLeave":
+        this._playerLeftHandler?.(payload.playerLeave);
+        break;
+
+      default:
+        console.warn("Unknown WebSocket event:", payload.oneofKind);
+    }
   }
 
-  public onGameState<T>(type: string, callback: (data: T) => void): void {
-    this._gameStateHandlers.set(type, callback);
+  public onGameState(callback: (changeset: GameStateMessage) => void): void {
+    this._gameStateHandler = callback;
   }
 
-  public onPositionUpdate(callback: (data: PositionUpdateData) => void): void {
-    this._positionUpdateHandler = callback;
+  public onGameStateDelta(
+    callback: (changeset: GameStateDeltaMessage) => void
+  ): void {
+    this._gameStateDeltaHandler = callback;
   }
 
-  public onPlayerJoined(callback: (data: PlayerJoinedData) => void): void {
+  public onPlayerJoined(callback: (message: PlayerJoinMessage) => void): void {
     this._playerJoinedHandler = callback;
   }
 
-  public onPlayerLeft(callback: (data: PlayerLeftData) => void): void {
+  public onPlayerLeft(callback: (message: PlayerLeaveMessage) => void): void {
     this._playerLeftHandler = callback;
   }
 }

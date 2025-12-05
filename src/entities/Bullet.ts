@@ -1,13 +1,9 @@
 import { ScreenObject } from "./ScreenObject";
 import { Vector2D } from "../utils/geometry/Vector2D";
 import * as config from "../config";
-import { IEnemy } from "../types/screen-objects/IEnemy";
 import { IBullet } from "../types/screen-objects/IBullet";
 import { IPoint } from "../types/geometry/IPoint";
 import { IWorld } from "../types/IWorld";
-import { SessionManager } from "../api/SessionManager";
-import { IO } from "inspector/promises";
-import { IOtherPlayer } from "../types/screen-objects/IOtherPlayer";
 
 export class Bullet extends ScreenObject implements IBullet {
   private _velocity: Vector2D;
@@ -48,51 +44,7 @@ export class Bullet extends ScreenObject implements IBullet {
     const dx = this._velocity.x * dt;
     const dy = this._velocity.y * dt;
 
-    // Check collisions with walls
-    const collisionRect = this.getCollisionRect(dx, dy);
-
-    let collision = false;
-    for (const wall of this.world.walls) {
-      if (
-        wall.checkCollision(
-          collisionRect.left,
-          collisionRect.top,
-          collisionRect.width,
-          collisionRect.height
-        )
-      ) {
-        collision = true;
-        break;
-      }
-    }
-
-    if (collision) {
-      this._active = false;
-    } else {
-      this.moveBy(dx, dy);
-
-      // Check hits with enemies
-      const hitEnemies = this.checkHitsEnemies();
-      if (hitEnemies.length > 0) {
-        hitEnemies.forEach((enemy) => enemy.takeDamage(this._damage));
-        this._active = false;
-      }
-
-      // Check hits with player
-      if (this.world.player && this.checkHitsPlayer()) {
-        this.world.player.takeDamage(this._damage);
-        this._active = false;
-      }
-
-      // Check hits with other players
-      const hitOtherPlayers = this.checkHitsOtherPlayers();
-      if (hitOtherPlayers.length > 0) {
-        hitOtherPlayers.forEach((otherPlayer) =>
-          otherPlayer.takeDamage(this._damage)
-        );
-        this._active = false;
-      }
-    }
+    this.moveBy(dx, dy);
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -113,35 +65,5 @@ export class Bullet extends ScreenObject implements IBullet {
     ctx.fill();
 
     ctx.restore();
-  }
-
-  checkHitsEnemies(): IEnemy[] {
-    if (this.isEnemy) {
-      return [];
-    }
-
-    return this.world.enemies.filter(
-      (enemy) => enemy.isAlive() && this.checkCollisionWithObject(enemy)
-    );
-  }
-
-  checkHitsPlayer(): boolean {
-    return Boolean(
-      (this.isEnemy || this.ownerId !== this.world.player?.id) &&
-        this.world.player &&
-        this.world.player.isAlive() &&
-        !this.world.player.isInvulnerable() &&
-        this.checkCollisionWithObject(this.world.player)
-    );
-  }
-
-  checkHitsOtherPlayers(): IOtherPlayer[] {
-    return this.world.otherPlayers.filter(
-      (otherPlayer) =>
-        this.ownerId !== otherPlayer.id &&
-        otherPlayer.isAlive() &&
-        !otherPlayer.isInvulnerable() &&
-        this.checkCollisionWithObject(otherPlayer)
-    );
   }
 }

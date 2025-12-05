@@ -1,3 +1,3 @@
 export interface IUpdatable {
-    update(dt: number): void;
+  update(dt: number): void;
 }
