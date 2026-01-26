@@ -25,16 +25,42 @@ export const GameScreen: React.FC = () => {
   // Memoize manager instances to prevent re-creation on every render
   const sessionManager = useMemo(() => SessionManager.getInstance(), []);
   const audioManager = useMemo(() => AudioManager.getInstance(), []);
+  const [isMuted, setIsMuted] = useState(audioManager.isMuted);
+  const [volume, setVolume] = useState(audioManager.getMasterVolume());
 
   const handleVolumeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newVolume = parseFloat(e.target.value);
       audioManager.setMasterVolume(newVolume);
-      // Update CSS variable for visual fill
-      e.target.style.setProperty("--slider-value", `${newVolume * 100}%`);
+      setVolume(newVolume);
+      if (newVolume === 0) {
+        audioManager.mute();
+        setIsMuted(true);
+      } else {
+        if (audioManager.isMuted) {
+          audioManager.unmute();
+          setIsMuted(false);
+        }
+      }
     },
-    [audioManager]
+    [audioManager],
   );
+
+  useEffect(() => {
+    return () => {
+      if (gameRef.current) {
+        console.log("Stopping game and ending session...");
+        sessionManager.endSession().catch((err) => {
+          console.error("Error ending session:", err);
+        });
+        gameRef.current.stop();
+        gameRef.current = null;
+        initializingRef.current = false;
+      }
+
+      document.title = "Dungerra";
+    };
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -65,7 +91,7 @@ export const GameScreen: React.FC = () => {
         const game = new Game(
           gameCanvasRef.current!,
           lightCanvasRef.current!,
-          uiCanvasRef.current!
+          uiCanvasRef.current!,
         );
         gameRef.current = game;
         await game.start(session);
@@ -82,6 +108,7 @@ export const GameScreen: React.FC = () => {
     // Cleanup on unmount
     return () => {
       if (gameRef.current) {
+        console.log("Stopping game and ending session...");
         sessionManager.endSession().catch((err) => {
           console.error("Error ending session:", err);
         });
@@ -123,8 +150,27 @@ export const GameScreen: React.FC = () => {
         height={config.SCREEN_HEIGHT}
       ></canvas>
       <div className="volume-control">
-        <label htmlFor="volume-slider" className="volume-label">
-          🔊
+        <label
+          className="volume-label"
+          onClick={() => {
+            if (audioManager.isMuted) {
+              audioManager.unmute();
+              setIsMuted(false);
+              if (volumeRef.current) {
+                volumeRef.current.value = audioManager
+                  .getMasterVolume()
+                  .toString();
+              }
+            } else {
+              audioManager.mute();
+              setIsMuted(true);
+              if (volumeRef.current) {
+                volumeRef.current.value = "0";
+              }
+            }
+          }}
+        >
+          {isMuted ? "🔇" : "🔊"}
         </label>
         <input
           ref={volumeRef}
@@ -133,12 +179,12 @@ export const GameScreen: React.FC = () => {
           min="0"
           max="1"
           step="0.01"
-          defaultValue={audioManager.getMasterVolume()}
+          defaultValue={volume}
           onChange={handleVolumeChange}
           className="volume-slider"
           style={
             {
-              "--slider-value": `${audioManager.getMasterVolume() * 100}%`,
+              "--slider-value": `${isMuted ? 0 : volume * 100}%`,
             } as React.CSSProperties
           }
         />

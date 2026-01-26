@@ -34,7 +34,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
 
   constructor(
     private world: IWorld,
-    playerData: PlayerMessage
+    playerData: PlayerMessage,
   ) {
     const point = new Point2D(playerData.position!.x, playerData.position!.y);
     const rotation = playerData.rotation;
@@ -89,7 +89,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       !this.isAlive()
     ) {
       const distance = this.getPosition().distanceTo(
-        this.world.player.getTorchPoint()
+        this.world.player.getTorchPoint(),
       );
       shouldDraw = distance <= this.world.torchRadius + this.width;
     }
@@ -127,7 +127,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
           -this.width / 2,
           -this.height / 2,
           this.width,
-          this.height
+          this.height,
         );
       }
 
@@ -137,11 +137,13 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
           texturePoint.x,
           texturePoint.y,
           textureSize,
-          textureSize
+          textureSize,
         );
-      }
 
-      ctx.rotate((-this._rotation * Math.PI) / 180);
+        if (this.isAlive() && !this.hasNightVision()) {
+          this.drawTorchLightAnimation(ctx);
+        }
+      }
     }
 
     ctx.restore();
@@ -153,7 +155,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
         -this.width / 2 + screenPoint.x,
         -this.height / 2 + screenPoint.y,
         this.width,
-        this.height
+        this.height,
       );
 
       // Draw center point
@@ -170,6 +172,42 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       uiCtx.arc(gunPoint.x, gunPoint.y, 2, 0, Math.PI * 2);
       uiCtx.fill();
     }
+  }
+
+  drawTorchLightAnimation(ctx: CanvasRenderingContext2D): void {
+    const torchPoint = config.PLAYER_TORCH_POINT;
+    const torchFireAnimation = config.ANIMATIONS.TORCH_FIRE;
+    const imageManager = ImageManager.getInstance();
+    const torchImage = imageManager.getImage(torchFireAnimation.image);
+    if (!torchImage) {
+      return;
+    }
+
+    const totalFrames = torchFireAnimation.frameCount * torchFireAnimation.rows;
+
+    const currentTime = Date.now();
+    const frameIndex = Math.floor(
+      ((currentTime % torchFireAnimation.duration) /
+        torchFireAnimation.duration) *
+        totalFrames,
+    );
+
+    const frameSize = torchImage.width / torchFireAnimation.rows;
+    const actualSize = 64;
+    const frameIndexInRow = frameIndex % torchFireAnimation.rows;
+    const frameRow = Math.floor(frameIndex / torchFireAnimation.rows);
+
+    ctx.drawImage(
+      torchImage,
+      frameIndexInRow * frameSize,
+      frameRow * frameSize,
+      frameSize,
+      frameSize,
+      torchPoint.x - actualSize / 2,
+      torchPoint.y - actualSize / 2,
+      actualSize,
+      actualSize,
+    );
   }
 
   isAlive(): boolean {
@@ -197,7 +235,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
       screenPoint.x - bgWidth / 2,
       screenPoint.y + this.height / 2 + 30,
       bgWidth,
-      bgHeight
+      bgHeight,
     );
 
     // Write nickname
@@ -210,7 +248,7 @@ export class OtherPlayer extends ScreenObject implements IOtherPlayer {
         this.height / 2 +
         30 +
         textMetrics.actualBoundingBoxAscent +
-        padding
+        padding,
     );
   }
 

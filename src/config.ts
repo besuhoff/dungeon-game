@@ -2,9 +2,6 @@ import { Assets } from "./assets";
 import { BonusType } from "./types/screen-objects/IBonus";
 import { Point2D } from "./utils/geometry/Point2D";
 
-const ASSETS_FOLDER = "assets";
-
-export const LOGIN_BUTTON_TEXTURE = `${ASSETS_FOLDER}/login-button.png`;
 export const API_DOMAIN =
   process.env.NODE_ENV === "production"
     ? "https://dungeon-game-go.onrender.com"
@@ -39,10 +36,10 @@ export const PLAYER_SIZE = 24;
 export const PLAYER_TEXTURE_SIZE = 64;
 export const PLAYER_TEXTURE_CENTER = new Point2D(
   PLAYER_TEXTURE_SIZE / 2 - 1,
-  26
+  26,
 );
 export const PLAYER_GUN_END = new Point2D(-10, 20);
-export const PLAYER_TORCH_POINT = new Point2D(7, 11);
+export const PLAYER_TORCH_POINT = new Point2D(10, 18);
 export const PLAYER_LIVES = 5;
 export const PLAYER_INVULNERABILITY_TIME = 1; // Seconds of invulnerability after getting hit
 export const PLAYER_ROTATION_SPEED = 180; // Degrees per second
@@ -59,16 +56,17 @@ export const ENEMY_SOLDIER_SIZE = 24;
 export const ENEMY_TOWER_SIZE = 120;
 export const ENEMY_LIVES = 1;
 export const ENEMY_LIEUTENANT_LIVES = 2;
+export const ENEMY_SNIPER_LIVES = 2;
 export const ENEMY_TOWER_LIVES = 30;
 export const ENEMY_TEXTURE_SIZE = 64;
 export const ENEMY_TOWER_TEXTURE_SIZE = 180;
 export const ENEMY_SOLDIER_TEXTURE_CENTER = new Point2D(
   PLAYER_TEXTURE_SIZE / 2 - 1,
-  26
+  26,
 );
 export const ENEMY_TOWER_TEXTURE_CENTER = new Point2D(
   ENEMY_TOWER_TEXTURE_SIZE / 2,
-  ENEMY_TOWER_TEXTURE_SIZE / 2
+  ENEMY_TOWER_TEXTURE_SIZE / 2,
 );
 export const ENEMY_SOLDIER_GUN_END = new Point2D(-1, 28);
 export const ENEMY_TOWER_GUN_END = new Point2D(0, 80);
@@ -111,6 +109,7 @@ export const TEXTURES = {
   PLAYER_RAILGUN: Assets.playerRailgunTexture,
   PLAYER_ROCKET_LAUNCHER: Assets.playerRocketLauncherTexture,
   ENEMY: Assets.enemyTexture,
+  ENEMY_SNIPER: Assets.enemySniperTexture,
   ENEMY_LIEUTENANT: Assets.enemyLieutenantTexture,
   ENEMY_TOWER: Assets.enemyTowerTurretTexture,
   ENEMY_TOWER_BACK: Assets.enemyTowerTexture,
@@ -137,6 +136,7 @@ export const TEXTURES = {
 
 export const ANIMATIONS = {
   EXPLOSION: Assets.explosionAnimation,
+  TORCH_FIRE: Assets.torchFireAnimation,
 };
 
 export const SOUNDS = {
@@ -166,6 +166,7 @@ export const ENEMY_TYPES = {
   SOLDIER: "pr",
   LIEUTENANT: "lt",
   TOWER: "tw",
+  SNIPER: "sn",
 } as const;
 
 export type EnemyType = (typeof ENEMY_TYPES)[keyof typeof ENEMY_TYPES];
@@ -174,18 +175,21 @@ export const ENEMY_LIVES_BY_TYPE: Record<EnemyType, number> = {
   [ENEMY_TYPES.SOLDIER]: ENEMY_LIVES,
   [ENEMY_TYPES.LIEUTENANT]: ENEMY_LIEUTENANT_LIVES,
   [ENEMY_TYPES.TOWER]: ENEMY_TOWER_LIVES,
+  [ENEMY_TYPES.SNIPER]: ENEMY_SNIPER_LIVES,
 };
 
 export const ENEMY_TEXTURE_BY_TYPE: Record<EnemyType, string> = {
   [ENEMY_TYPES.SOLDIER]: TEXTURES.ENEMY,
   [ENEMY_TYPES.LIEUTENANT]: TEXTURES.ENEMY_LIEUTENANT,
   [ENEMY_TYPES.TOWER]: TEXTURES.ENEMY_TOWER,
+  [ENEMY_TYPES.SNIPER]: TEXTURES.ENEMY_SNIPER,
 };
 
 export const ENEMY_DEAD_TEXTURE_BY_TYPE: Record<EnemyType, string> = {
   [ENEMY_TYPES.SOLDIER]: TEXTURES.BLOOD,
   [ENEMY_TYPES.LIEUTENANT]: TEXTURES.BLOOD,
   [ENEMY_TYPES.TOWER]: TEXTURES.ENEMY_TOWER_RUINED,
+  [ENEMY_TYPES.SNIPER]: TEXTURES.BLOOD,
 };
 
 export const WEAPON_TYPES: readonly WeaponType[] = [
@@ -289,16 +293,26 @@ export const BULLET_AFTERLIFE_MS_BY_WEAPON_TYPE: Record<WeaponType, number> = {
 export const BULLET_COLOR_BY_ENEMY_TYPE: Partial<Record<EnemyType, string>> = {
   [ENEMY_TYPES.SOLDIER]: ENEMY_BULLET_COLOR,
   [ENEMY_TYPES.LIEUTENANT]: ENEMY_LIEUTENANT_BULLET_COLOR,
+  [ENEMY_TYPES.SNIPER]: PLAYER_BULLET_COLOR,
 };
 
 export const ENEMY_SIZE_BY_TYPE: Record<EnemyType, number> = {
   [ENEMY_TYPES.SOLDIER]: ENEMY_SOLDIER_SIZE,
   [ENEMY_TYPES.LIEUTENANT]: ENEMY_SOLDIER_SIZE,
+  [ENEMY_TYPES.SNIPER]: ENEMY_SOLDIER_SIZE,
   [ENEMY_TYPES.TOWER]: ENEMY_TOWER_SIZE,
 };
 
 export const ENEMY_GUN_END_BY_TYPE: Record<EnemyType, Point2D> = {
   [ENEMY_TYPES.SOLDIER]: ENEMY_SOLDIER_GUN_END,
   [ENEMY_TYPES.LIEUTENANT]: ENEMY_SOLDIER_GUN_END,
+  [ENEMY_TYPES.SNIPER]: ENEMY_SOLDIER_GUN_END,
   [ENEMY_TYPES.TOWER]: ENEMY_TOWER_GUN_END,
 };
+
+export const RAY_TYPES = {
+  LASER: "laser",
+  PROJECTOR: "projector",
+} as const;
+
+export type RayType = (typeof RAY_TYPES)[keyof typeof RAY_TYPES];

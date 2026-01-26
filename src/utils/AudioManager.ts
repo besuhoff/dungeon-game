@@ -13,6 +13,7 @@ export class AudioManager {
   private activeSources: Map<string, Set<AudioBufferSourceNode>> = new Map();
   private masterGainNode: GainNode;
   private masterVolume: number;
+  private _isMuted: boolean = false;
 
   private constructor() {
     this.audioContext = new AudioContext();
@@ -116,11 +117,27 @@ export class AudioManager {
 
   setMasterVolume(volume: number): void {
     this.masterVolume = Math.max(0, Math.min(1, volume));
-    this.masterGainNode.gain.value = this.masterVolume;
+    if (!this._isMuted) {
+      this.masterGainNode.gain.value = this.masterVolume;
+    }
     localStorage.setItem("masterVolume", this.masterVolume.toString());
   }
 
   getMasterVolume(): number {
     return this.masterVolume;
+  }
+
+  mute(): void {
+    this._isMuted = true;
+    this.masterGainNode.gain.value = 0;
+  }
+
+  unmute(): void {
+    this._isMuted = false;
+    this.masterGainNode.gain.value = this.masterVolume;
+  }
+
+  get isMuted(): boolean {
+    return this._isMuted;
   }
 }

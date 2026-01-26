@@ -5,6 +5,7 @@ import playerShotgunTexture from "./player-shotgun.png";
 import playerRailgunTexture from "./player-railgun.png";
 import playerRocketLauncherTexture from "./player-rocket-launcher.png";
 import enemyTexture from "./enemy.png";
+import enemySniperTexture from "./enemy-sniper.png";
 import enemyLieutenantTexture from "./enemy-lieutenant.png";
 import enemyTowerTexture from "./tower-back.png";
 import enemyTowerTurretTexture from "./tower-turret.png";
@@ -27,6 +28,7 @@ import shopLayoutTexture from "./shop-layout.png";
 import chestTexture from "./chest.png";
 
 import explosionAnimation from "./explosion-animation.png";
+import torchFireAnimation from "./torch-fire-animation.png";
 
 import bulletSound from "./blaster.ogg";
 import torchSound from "./torch.ogg";
@@ -55,6 +57,7 @@ export const Assets = {
   playerRailgunTexture,
   playerRocketLauncherTexture,
   enemyTexture,
+  enemySniperTexture,
   enemyLieutenantTexture,
   enemyTowerTexture,
   enemyTowerTurretTexture,
@@ -80,6 +83,13 @@ export const Assets = {
     image: explosionAnimation,
     frameCount: 17,
     duration: 800,
+  },
+
+  torchFireAnimation: {
+    image: torchFireAnimation,
+    frameCount: 8,
+    rows: 8,
+    duration: 1200,
   },
 
   bulletSound,

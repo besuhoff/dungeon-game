@@ -34,10 +34,17 @@ export class BulletManager implements IBulletManager {
       return;
     }
 
+    let bulletPosition = bullet.getPosition();
+    if (bullet.weaponType === "railgun") {
+      bulletPosition = bulletPosition
+        .clone()
+        .moveBy(bullet.velocity.x, bullet.velocity.y);
+    }
+
     // Play sound
-    const distance = bullet
-      .getPosition()
-      .distanceTo(this.world.player!.getPosition());
+    const distance = bulletPosition.distanceTo(
+      this.world.player!.getPosition(),
+    );
     const maxDistance = this.world.torchRadius * 2;
     const volume = distance >= maxDistance ? 0 : 1 - distance / maxDistance;
 
@@ -49,7 +56,7 @@ export class BulletManager implements IBulletManager {
         config.BULLET_SOUND_BY_WEAPON_TYPE[
           bullet.weaponType as config.WeaponType
         ] || config.SOUNDS.BULLET,
-        { volume }
+        { volume },
       );
     }
 

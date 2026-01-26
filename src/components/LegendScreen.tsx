@@ -17,6 +17,7 @@ import itemAmmoShotgunImage from "../assets/item-ammo-shotgun.png";
 import shopImage from "../assets/shop.png";
 import shopExampleImage from "../assets/shop-example.png";
 import playerRailgunImage from "../assets/player-railgun.png";
+import torchFireAnimation from "../assets/torch-fire-animation.gif";
 
 export const LegendScreen: React.FC = () => {
   return (
@@ -50,6 +51,7 @@ export const LegendScreen: React.FC = () => {
             style={{ transform: "rotate(-25deg)" }}
             alt="Player"
           />
+          <img src={torchFireAnimation} alt="" />
         </p>
 
         <p>
@@ -175,6 +177,7 @@ export const LegendScreen: React.FC = () => {
               style={{ transform: "rotate(90deg)" }}
               alt="Player with railgun"
             />
+            <img src={torchFireAnimation} alt="" />
             <figcaption>railgun.sniper</figcaption>
           </figure>
         </div>

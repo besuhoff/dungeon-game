@@ -7,6 +7,7 @@ import { IOtherPlayer } from "./screen-objects/IOtherPlayer";
 import { GameStateDeltaMessage, Player as PlayerMessage } from "./socketEvents";
 import { IShop } from "./screen-objects/IShop";
 import { InventoryItemID } from "../config";
+import { IRay } from "./screen-objects/IRay";
 
 export interface IWorld {
   player: IPlayer | null;
@@ -15,6 +16,7 @@ export interface IWorld {
   shops: IShop[];
   enemies: IEnemy[];
   bonuses: IBonus[];
+  rays: IRay[];
   gameOver: boolean;
   cameraPoint: IPoint;
   torchRadius: number;
