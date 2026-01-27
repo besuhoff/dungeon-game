@@ -17,6 +17,7 @@ export const HEADER_FONT_NAME = "Rubik Distressed";
 // World settings
 export const TORCH_RADIUS = 200;
 export const NIGHT_VISION_DETECTION_RADIUS = 100;
+export const SIGHT_RADIUS = 1500;
 export const COLOR_LIGHT = "#ffffffff";
 export const COLOR_TRANSPARENT = "#ffffff00";
 export const COLOR_DARK = "#000000E6";
