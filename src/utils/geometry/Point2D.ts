@@ -3,7 +3,7 @@ import { IPoint } from "../../types/geometry/IPoint";
 export class Point2D implements IPoint {
   constructor(
     private _x: number,
-    private _y: number
+    private _y: number,
   ) {}
 
   public get x(): number {

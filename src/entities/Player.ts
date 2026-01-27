@@ -73,7 +73,7 @@ export class Player extends ScreenObject implements IPlayer {
 
   hasInventoryItem(itemType: config.InventoryItemID): boolean {
     return this._inventory.some(
-      (item) => item.type === itemType && item.quantity > 0
+      (item) => item.type === itemType && item.quantity > 0,
     );
   }
 
@@ -83,13 +83,13 @@ export class Player extends ScreenObject implements IPlayer {
 
   static createFromSessionPlayer(
     world: IWorld,
-    sessionPlayer: SessionPlayer
+    sessionPlayer: SessionPlayer,
   ): IPlayer {
     const player = new Player(
       world,
       new Point2D(sessionPlayer.position.x, sessionPlayer.position.y),
       sessionPlayer.position.rotation,
-      sessionPlayer.player_id
+      sessionPlayer.player_id,
     );
 
     player._lives = sessionPlayer.lives;
@@ -102,7 +102,7 @@ export class Player extends ScreenObject implements IPlayer {
     private world: IWorld,
     point: IPoint,
     rotation: number,
-    id: string = ""
+    id: string = "",
   ) {
     super(point, config.PLAYER_SIZE, config.PLAYER_SIZE, id);
 
@@ -136,7 +136,7 @@ export class Player extends ScreenObject implements IPlayer {
   takeDamage(amount: number): void {
     this._lives -= amount;
     AudioManager.getInstance().playSound(
-      this._lives > 0 ? config.SOUNDS.PLAYER_HURT : config.SOUNDS.PLAYER_DEAD
+      this._lives > 0 ? config.SOUNDS.PLAYER_HURT : config.SOUNDS.PLAYER_DEAD,
     );
   }
 
@@ -194,9 +194,11 @@ export class Player extends ScreenObject implements IPlayer {
         texturePoint.x,
         texturePoint.y,
         imageSize,
-        imageSize
+        imageSize,
       );
-      ctx.rotate((-this._rotation * Math.PI) / 180);
+      if (this.isAlive() && !this.hasNightVision()) {
+        this.drawTorchLightAnimation(ctx);
+      }
     }
 
     ctx.restore();
@@ -208,7 +210,7 @@ export class Player extends ScreenObject implements IPlayer {
         -this.width / 2 + screenPoint.x,
         -this.height / 2 + screenPoint.y,
         this.width,
-        this.height
+        this.height,
       );
 
       // Draw center point
@@ -228,13 +230,49 @@ export class Player extends ScreenObject implements IPlayer {
       // Draw torch point
       uiCtx.fillStyle = "cyan";
       const torchPoint = this.world.worldToScreenCoordinates(
-        this.getTorchPoint()
+        this.getTorchPoint(),
       );
 
       uiCtx.beginPath();
       uiCtx.arc(torchPoint.x, torchPoint.y, 2, 0, Math.PI * 2);
       uiCtx.fill();
     }
+  }
+
+  drawTorchLightAnimation(ctx: CanvasRenderingContext2D): void {
+    const torchPoint = config.PLAYER_TORCH_POINT;
+    const torchFireAnimation = config.ANIMATIONS.TORCH_FIRE;
+    const imageManager = ImageManager.getInstance();
+    const torchImage = imageManager.getImage(torchFireAnimation.image);
+    if (!torchImage) {
+      return;
+    }
+
+    const totalFrames = torchFireAnimation.frameCount * torchFireAnimation.rows;
+
+    const currentTime = Date.now();
+    const frameIndex = Math.floor(
+      ((currentTime % torchFireAnimation.duration) /
+        torchFireAnimation.duration) *
+        totalFrames,
+    );
+
+    const frameSize = torchImage.width / torchFireAnimation.rows;
+    const actualSize = 64;
+    const frameIndexInRow = frameIndex % torchFireAnimation.rows;
+    const frameRow = Math.floor(frameIndex / torchFireAnimation.rows);
+
+    ctx.drawImage(
+      torchImage,
+      frameIndexInRow * frameSize,
+      frameRow * frameSize,
+      frameSize,
+      frameSize,
+      torchPoint.x - actualSize / 2,
+      torchPoint.y - actualSize / 2,
+      actualSize,
+      actualSize,
+    );
   }
 
   drawUI(ctx: CanvasRenderingContext2D): void {
@@ -254,7 +292,7 @@ export class Player extends ScreenObject implements IPlayer {
           inventoryPanelHeight -
           inventoryPanelMarginBottom,
         inventoryPanelWidth,
-        inventoryPanelHeight
+        inventoryPanelHeight,
       );
 
       if (this._inventory) {
@@ -265,7 +303,7 @@ export class Player extends ScreenObject implements IPlayer {
           }
 
           const itemTexture = imageManager.getInventoryTexture(
-            item.type as config.InventoryItemID
+            item.type as config.InventoryItemID,
           );
 
           if (!itemTexture) {
@@ -273,7 +311,7 @@ export class Player extends ScreenObject implements IPlayer {
           }
 
           const isAmmo = config.AMMO_ITEM_IDS.includes(
-            item.type as config.InventoryItemID
+            item.type as config.InventoryItemID,
           );
           const itemCenterX =
             (isAmmo ? item.type - 20 : item.type) * inventoryPanelCellSize -
@@ -294,7 +332,7 @@ export class Player extends ScreenObject implements IPlayer {
               itemCenterY -
               itemTexture.height / 2,
             itemTexture.width,
-            itemTexture.height
+            itemTexture.height,
           );
 
           if (item.quantity > 1) {
@@ -312,7 +350,7 @@ export class Player extends ScreenObject implements IPlayer {
                 inventoryPanelCellSize / 2 -
                 16,
               itemTexture.width,
-              16
+              16,
             );
 
             // Draw quantity
@@ -331,7 +369,7 @@ export class Player extends ScreenObject implements IPlayer {
                 inventoryPanelMarginBottom +
                 itemCenterY +
                 inventoryPanelCellSize / 2 -
-                4
+                4,
             );
           }
 
@@ -353,7 +391,7 @@ export class Player extends ScreenObject implements IPlayer {
                 itemCenterY -
                 inventoryPanelCellSize / 2,
               inventoryPanelCellSize,
-              inventoryPanelCellSize
+              inventoryPanelCellSize,
             );
           }
         });
@@ -370,12 +408,12 @@ export class Player extends ScreenObject implements IPlayer {
       ctx.fillText(
         `Collision hits: ${this._debugData.collisionHits}`,
         10,
-        ctx.canvas.height - 38
+        ctx.canvas.height - 38,
       );
       ctx.fillText(
         `Player position: ${this.getPosition()}`,
         10,
-        ctx.canvas.height - 24
+        ctx.canvas.height - 24,
       );
       ctx.fillText(`Rotation: ${this._rotation}`, 10, ctx.canvas.height - 10);
     }
@@ -403,13 +441,13 @@ export class Player extends ScreenObject implements IPlayer {
   static fromGameState(world: IWorld, playerData: PlayerMessage): IPlayer {
     const position = new Point2D(
       playerData.position!.x,
-      playerData.position!.y
+      playerData.position!.y,
     );
     const player = new Player(
       world,
       position,
       playerData.rotation,
-      playerData.id
+      playerData.id,
     );
     player._lives = playerData.lives;
     player._kills = playerData.kills;
@@ -457,7 +495,7 @@ export class Player extends ScreenObject implements IPlayer {
     if (
       newGunType === this._selectedGunType &&
       !config.WEAPON_TYPES_LOADED_DIRECTLY_FROM_INVENTORY.includes(
-        this._selectedGunType
+        this._selectedGunType,
       ) &&
       changeset.playerBullets &&
       this._bulletsLeft <
@@ -465,7 +503,7 @@ export class Player extends ScreenObject implements IPlayer {
     ) {
       AudioManager.getInstance().playSound(
         config.SOUNDS.PLAYER_BULLET_RECHARGE,
-        { volume: 0.5 }
+        { volume: 0.5 },
       );
     }
 
@@ -477,7 +515,7 @@ export class Player extends ScreenObject implements IPlayer {
       const inventoryItemId =
         config.AMMO_INVENTORY_ID_BY_WEAPON_TYPE[newGunType];
       const inventoryItem = newInventory.find(
-        (item) => item.type === inventoryItemId
+        (item) => item.type === inventoryItemId,
       );
       this._bulletsLeft = inventoryItem?.quantity ?? 0;
     } else if (changeset.playerBullets) {
@@ -496,7 +534,7 @@ export class Player extends ScreenObject implements IPlayer {
       if (this.world.isPlayerInShop()) {
         changeset.inventory.inventory.forEach((item) => {
           const existingItem = this._inventory.find(
-            (invItem) => invItem.type === item.type
+            (invItem) => invItem.type === item.type,
           );
 
           if (!existingItem || item.quantity > existingItem.quantity) {
@@ -508,7 +546,7 @@ export class Player extends ScreenObject implements IPlayer {
           .filter((item) => config.INVENTORY_ITEM_BONUS.includes(item.type))
           .forEach((item) => {
             const updatedItem = changeset.inventory!.inventory.find(
-              (newItem) => newItem.type === item.type
+              (newItem) => newItem.type === item.type,
             );
             if (!updatedItem || updatedItem.quantity < item.quantity) {
               AudioManager.getInstance().playSound(config.SOUNDS.BONUS_PICKUP);

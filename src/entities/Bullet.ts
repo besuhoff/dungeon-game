@@ -124,10 +124,11 @@ export class Bullet extends ScreenObject implements IBullet {
 
     if (this._weaponType === "railgun") {
       // Draw railgun bullet as a line
-      ctx.strokeStyle = this.isEnemy
+      const bulletColor = this.isEnemy
         ? (config.BULLET_COLOR_BY_ENEMY_TYPE[this.enemyType] ??
           config.ENEMY_BULLET_COLOR)
         : config.PLAYER_BULLET_COLOR;
+      ctx.strokeStyle = bulletColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -146,10 +147,7 @@ export class Bullet extends ScreenObject implements IBullet {
         endY,
         glowSize
       );
-      gradient.addColorStop(
-        0,
-        this.isEnemy ? config.ENEMY_BULLET_COLOR : config.PLAYER_BULLET_COLOR
-      );
+      gradient.addColorStop(0, bulletColor);
       gradient.addColorStop(1, "transparent");
       ctx.fillStyle = gradient;
       ctx.beginPath();

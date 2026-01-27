@@ -29,7 +29,7 @@ export class Enemy extends ScreenObject implements IEnemy {
   constructor(
     private world: IWorld,
     enemyData: EnemyMessage,
-    private _wall?: IWall | undefined
+    private _wall?: IWall | undefined,
   ) {
     const size = config.ENEMY_SIZE_BY_TYPE[enemyData.type as config.EnemyType];
 
@@ -90,7 +90,7 @@ export class Enemy extends ScreenObject implements IEnemy {
       const players = [
         currentPlayer,
         ...this.world.otherPlayers.filter(
-          (p) => p.isAlive() && !p.hasNightVision()
+          (p) => p.isAlive() && !p.hasNightVision(),
         ),
       ];
       for (const player of players) {
@@ -124,7 +124,7 @@ export class Enemy extends ScreenObject implements IEnemy {
         texturePoint.x,
         texturePoint.y,
         textureSize,
-        textureSize
+        textureSize,
       );
     }
 
@@ -135,21 +135,11 @@ export class Enemy extends ScreenObject implements IEnemy {
           texturePoint.x,
           texturePoint.y,
           textureSize,
-          textureSize
+          textureSize,
         );
       }
 
-      ctx.rotate((this.rotation * Math.PI) / 180);
-      ctx.drawImage(
-        this._image,
-        texturePoint.x,
-        texturePoint.y,
-        textureSize,
-        textureSize
-      );
-
       // Draw lives bar
-      ctx.rotate((-this.rotation * Math.PI) / 180);
       const barWidth = this.width;
       const barHeight = 5;
       const livesRatio = this._lives / config.ENEMY_LIVES_BY_TYPE[this._type];
@@ -159,7 +149,7 @@ export class Enemy extends ScreenObject implements IEnemy {
         -barWidth / 2,
         this.height / 2 + barHeight + 6,
         barWidth,
-        barHeight
+        barHeight,
       );
 
       ctx.fillStyle = "lime";
@@ -167,7 +157,16 @@ export class Enemy extends ScreenObject implements IEnemy {
         -barWidth / 2,
         this.height / 2 + barHeight + 6,
         barWidth * livesRatio,
-        barHeight
+        barHeight,
+      );
+
+      ctx.rotate((this.rotation * Math.PI) / 180);
+      ctx.drawImage(
+        this._image,
+        texturePoint.x,
+        texturePoint.y,
+        textureSize,
+        textureSize,
       );
     }
 
@@ -182,7 +181,7 @@ export class Enemy extends ScreenObject implements IEnemy {
         -this.width / 2,
         -this.height / 2,
         this.width,
-        this.height
+        this.height,
       );
 
       if (!this.dead) {
@@ -227,7 +226,7 @@ export class Enemy extends ScreenObject implements IEnemy {
     if (enemyDelta.lives) {
       if (enemyDelta.lives.lives < this._lives) {
         const distance = this.getPosition().distanceTo(
-          this.world.player!.getPosition()
+          this.world.player!.getPosition(),
         );
         const maxDistance = this.world.torchRadius * 2;
         const volume = distance >= maxDistance ? 0 : 1 - distance / maxDistance;

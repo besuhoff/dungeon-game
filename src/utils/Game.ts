@@ -12,6 +12,7 @@ import { Session } from "../types/session";
 import { OtherPlayer } from "../entities/OtherPlayer";
 import { BulletManager } from "./BulletManager";
 import { ImageManager } from "./ImageManager";
+import { Ray } from "../entities/Ray";
 export class Game {
   private _ctx: CanvasRenderingContext2D;
   private _lightCtx: CanvasRenderingContext2D;
@@ -30,7 +31,7 @@ export class Game {
   constructor(
     private _canvas: HTMLCanvasElement,
     private _lightCanvas: HTMLCanvasElement,
-    private _uiCanvas: HTMLCanvasElement
+    private _uiCanvas: HTMLCanvasElement,
   ) {
     [this._canvas, this._lightCanvas, this._uiCanvas].forEach((canvas) => {
       canvas.width = config.SCREEN_WIDTH;
@@ -56,6 +57,7 @@ export class Game {
       imageManager.loadPlayerTextures(),
       imageManager.loadImage(config.TEXTURES.ENEMY),
       imageManager.loadImage(config.TEXTURES.WALL),
+      imageManager.loadImage(config.ANIMATIONS.TORCH_FIRE.image),
       audioManager.loadSound(config.SOUNDS.PLAYER_HURT),
       audioManager.loadSound(config.SOUNDS.PLAYER_DEAD),
       audioManager.loadSound(config.SOUNDS.ENEMY_HURT),
@@ -167,8 +169,9 @@ export class Game {
         Bonus,
         OtherPlayer,
         Shop,
+        Ray,
         BulletManager,
-        multiplayerMode
+        multiplayerMode,
       );
 
       this._started = true;

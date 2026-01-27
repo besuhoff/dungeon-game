@@ -492,6 +492,14 @@ button:active {
   position: relative;
 }
 
+#legend .light img:last-of-type {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-18px, -24px) scale(0.5) rotate(-25deg);
+  z-index: 1;
+}
+
 #legend .light:after,
 #legend .other-player figure::after {
   content: "";
@@ -502,8 +510,8 @@ button:active {
   border-radius: 50%;
   width: 200px;
   aspect-ratio: 1 / 1;
-  left: 35px;
-  top: 30px;
+  left: 40px;
+  top: 35px;
   box-shadow: inset 0 0 10px 10px #000;
   animation: light-pulse 1.5s infinite;
   transform: translate(-50%, -50%);
@@ -713,6 +721,14 @@ button:active {
 #legend .other-player figure {
   position: absolute;
   right: 10px;
+}
+
+#legend .other-player figure img:last-of-type {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-24px, -22px) scale(0.5) rotate(90deg);
+  z-index: 1;
 }
 
 #legend .shop-description .yellow {

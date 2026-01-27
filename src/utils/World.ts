@@ -24,6 +24,7 @@ import {
 } from "../types/screen-objects/IBulletManager";
 import { IShop, IShopFactory } from "../types/screen-objects/IShop";
 import { ImageManager } from "./ImageManager";
+import { IRay, IRayFactory } from "../types/screen-objects/IRay";
 
 export class World implements IWorld {
   private readonly CHUNK_SIZE = 2000; // Same as screen width for now
@@ -35,6 +36,7 @@ export class World implements IWorld {
   private _walls: IWall[] = [];
   private _bonuses: IBonus[] = [];
   private _shops: IShop[] = [];
+  private _rays: IRay[] = [];
 
   private _gameOver: boolean = false;
 
@@ -101,6 +103,10 @@ export class World implements IWorld {
     return this._shops;
   }
 
+  get rays(): IRay[] {
+    return this._rays;
+  }
+
   get cameraPoint(): IPoint {
     return this._cameraPoint;
   }
@@ -120,8 +126,9 @@ export class World implements IWorld {
     private _Bonus: IBonusFactory,
     private _OtherPlayer: IOtherPlayerFactory,
     private _Shop: IShopFactory,
+    private _Ray: IRayFactory,
     private _BulletManager: IBulletManagerFactory,
-    private _multiplayerMode: "host" | "guest"
+    private _multiplayerMode: "host" | "guest",
   ) {
     // Load sounds
     const audioManager = AudioManager.getInstance();
@@ -153,7 +160,7 @@ export class World implements IWorld {
   private getChunkLeftTop(worldPoint: IPoint): IPoint {
     return new Point2D(
       Math.floor(worldPoint.x / this.CHUNK_SIZE),
-      Math.floor(worldPoint.y / this.CHUNK_SIZE)
+      Math.floor(worldPoint.y / this.CHUNK_SIZE),
     );
   }
 
@@ -208,7 +215,7 @@ export class World implements IWorld {
             -textureX - x * resultingFloorWidth,
             -textureY - y * resultingFloorHeight,
             resultingFloorWidth,
-            resultingFloorHeight
+            resultingFloorHeight,
           );
         }
       }
@@ -227,14 +234,14 @@ export class World implements IWorld {
           const chunkY = (chunkLeftTop.y + y) * this.CHUNK_SIZE;
 
           const screenPoint = this.worldToScreenCoordinates(
-            new Point2D(chunkX, chunkY)
+            new Point2D(chunkX, chunkY),
           );
 
           ctx.strokeRect(
             screenPoint.x,
             screenPoint.y,
             this.CHUNK_SIZE,
-            this.CHUNK_SIZE
+            this.CHUNK_SIZE,
           );
 
           // Draw diagonals
@@ -242,7 +249,7 @@ export class World implements IWorld {
           ctx.moveTo(screenPoint.x, screenPoint.y);
           ctx.lineTo(
             screenPoint.x + this.CHUNK_SIZE,
-            screenPoint.y + this.CHUNK_SIZE
+            screenPoint.y + this.CHUNK_SIZE,
           );
           ctx.moveTo(screenPoint.x + this.CHUNK_SIZE, screenPoint.y);
           ctx.lineTo(screenPoint.x, screenPoint.y + this.CHUNK_SIZE);
@@ -256,7 +263,7 @@ export class World implements IWorld {
   draw(
     ctx: CanvasRenderingContext2D,
     lightCtx: CanvasRenderingContext2D,
-    uiCtx: CanvasRenderingContext2D
+    uiCtx: CanvasRenderingContext2D,
   ): void {
     // Clear the canvas
     ctx.clearRect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT);
@@ -284,6 +291,9 @@ export class World implements IWorld {
       this._player.draw(ctx, uiCtx);
     }
 
+    // Draw rays
+    this._rays.forEach((ray) => ray.draw(ctx, uiCtx));
+
     // Draw bullets
     this._bulletManager.draw(ctx, uiCtx);
 
@@ -299,7 +309,7 @@ export class World implements IWorld {
     point: IPoint,
     padding: number,
     color: string,
-    fadeWhenOnScreen: boolean = false
+    fadeWhenOnScreen: boolean = false,
   ): void {
     const screenPoint = this.worldToScreenCoordinates(point);
     const isOnScreen =
@@ -314,7 +324,7 @@ export class World implements IWorld {
 
     const centerScreenPoint = new Point2D(
       config.SCREEN_WIDTH / 2,
-      config.SCREEN_HEIGHT / 2
+      config.SCREEN_HEIGHT / 2,
     );
     const direction = screenPoint.subtracted(centerScreenPoint);
     const arrowLength = 10;
@@ -322,25 +332,25 @@ export class World implements IWorld {
     const bonusRadius = padding;
 
     const distance = Math.sqrt(
-      direction.x * direction.x + direction.y * direction.y
+      direction.x * direction.x + direction.y * direction.y,
     );
     const normalizedDirection = new Point2D(
       direction.x / distance,
-      direction.y / distance
+      direction.y / distance,
     );
     const arrowEndPoint = new Point2D(
       centerScreenPoint.x +
         normalizedDirection.x *
           Math.min(
             distance - bonusRadius,
-            config.SCREEN_WIDTH / 2 - arrowLength
+            config.SCREEN_WIDTH / 2 - arrowLength,
           ),
       centerScreenPoint.y +
         normalizedDirection.y *
           Math.min(
             distance - bonusRadius,
-            config.SCREEN_HEIGHT / 2 - arrowLength
-          )
+            config.SCREEN_HEIGHT / 2 - arrowLength,
+          ),
     );
 
     // Add a light bouncing animation to the arrow
@@ -348,7 +358,7 @@ export class World implements IWorld {
     const bounceOffset = Math.sin(time) * 3;
     arrowEndPoint.moveBy(
       normalizedDirection.x * bounceOffset,
-      normalizedDirection.y * bounceOffset
+      normalizedDirection.y * bounceOffset,
     );
 
     ctx.strokeStyle = color;
@@ -362,7 +372,7 @@ export class World implements IWorld {
         normalizedDirection.y * (arrowLength / 3),
       arrowEndPoint.y -
         normalizedDirection.y * arrowLength -
-        normalizedDirection.x * (arrowLength / 3)
+        normalizedDirection.x * (arrowLength / 3),
     );
     ctx.lineTo(
       arrowEndPoint.x -
@@ -370,7 +380,7 @@ export class World implements IWorld {
         normalizedDirection.y * (arrowLength / 3),
       arrowEndPoint.y -
         normalizedDirection.y * arrowLength +
-        normalizedDirection.x * (arrowLength / 3)
+        normalizedDirection.x * (arrowLength / 3),
     );
     ctx.lineTo(arrowEndPoint.x, arrowEndPoint.y);
     ctx.fill();
@@ -385,7 +395,7 @@ export class World implements IWorld {
 
     if (!this.gameOver) {
       const playersBonuses = this._bonuses.filter(
-        (bonus) => bonus.belongsToPlayer
+        (bonus) => bonus.belongsToPlayer,
       );
 
       for (const bonus of playersBonuses) {
@@ -395,7 +405,7 @@ export class World implements IWorld {
           ctx,
           bonus.getPosition(),
           (bonus.width * Math.SQRT2) / 2 + 10,
-          "lime"
+          "lime",
         );
       }
 
@@ -405,7 +415,7 @@ export class World implements IWorld {
           position,
           (config.PLAYER_SIZE * Math.SQRT2) / 2 + 10,
           "yellow",
-          true
+          true,
         );
       }
     }
@@ -419,20 +429,20 @@ export class World implements IWorld {
       ctx.fillText(
         "Game Over",
         config.SCREEN_WIDTH / 2,
-        config.SCREEN_HEIGHT / 2
+        config.SCREEN_HEIGHT / 2,
       );
       ctx.font = `24px ${config.FONT_NAME}`;
       ctx.fillStyle = "yellow";
       ctx.fillText(
         `Your Posthumous Score: ${this._player.score.toFixed(0)}`,
         config.SCREEN_WIDTH / 2,
-        config.SCREEN_HEIGHT / 2 + 40
+        config.SCREEN_HEIGHT / 2 + 40,
       );
       ctx.fillStyle = "magenta";
       ctx.fillText(
         "Press R to Restart",
         config.SCREEN_WIDTH / 2,
-        config.SCREEN_HEIGHT / 2 + 80
+        config.SCREEN_HEIGHT / 2 + 80,
       );
     } else {
       ctx.fillStyle = "white";
@@ -440,7 +450,7 @@ export class World implements IWorld {
       ctx.fillText(
         `Lives: ${Array(Math.ceil(this._player.lives)).fill("❤️").join(" ")}`,
         10,
-        25
+        25,
       );
       ctx.fillStyle = "yellow";
       ctx.fillText(`Money: ${this._player.money.toFixed(0)}$`, 10, 50);
@@ -462,7 +472,7 @@ export class World implements IWorld {
         ctx.fillText(
           `Night Vision: ${this._player.nightVisionTimer.toFixed(0)}`,
           10,
-          125
+          125,
         );
       }
     }
@@ -477,6 +487,7 @@ export class World implements IWorld {
         this._walls.length +
         this._bonuses.length +
         this._shops.length +
+        this._rays.length +
         Object.values(this._otherPlayers).length +
         (this._player ? 1 : 0);
 
@@ -485,37 +496,37 @@ export class World implements IWorld {
       ctx.fillText(
         `Chunk: ${this.getChunkLeftTop(this.cameraPoint)}`,
         10,
-        config.SCREEN_HEIGHT - 52
+        config.SCREEN_HEIGHT - 52,
       );
       ctx.fillText(
         `Number of world objects: ${worldObjectsCount}`,
         10,
-        config.SCREEN_HEIGHT - 66
+        config.SCREEN_HEIGHT - 66,
       );
       ctx.fillText(
         `Camera position: ${this.cameraPoint}`,
         10,
-        config.SCREEN_HEIGHT - 80
+        config.SCREEN_HEIGHT - 80,
       );
       ctx.fillText(
         `Number of chunks: ${this.chunks.size}`,
         10,
-        config.SCREEN_HEIGHT - 94
+        config.SCREEN_HEIGHT - 94,
       );
       ctx.fillText(
         `Host: ${this._sessionManager.getCurrentSession()?.host.username}`,
         10,
-        config.SCREEN_HEIGHT - 108
+        config.SCREEN_HEIGHT - 108,
       );
       ctx.fillText(
         `Session ID: ${this._sessionManager.getCurrentSession()?.id}`,
         10,
-        config.SCREEN_HEIGHT - 122
+        config.SCREEN_HEIGHT - 122,
       );
       ctx.fillText(
         `Session: ${this._sessionManager.getCurrentSession()?.name}`,
         10,
-        config.SCREEN_HEIGHT - 136
+        config.SCREEN_HEIGHT - 136,
       );
     }
   }
@@ -556,7 +567,7 @@ export class World implements IWorld {
         0,
         torchPoint.x,
         torchPoint.y,
-        torchRadius
+        torchRadius,
       );
       gradient.addColorStop(0, config.COLOR_LIGHT);
       gradient.addColorStop(1, config.COLOR_TRANSPARENT);
@@ -571,7 +582,7 @@ export class World implements IWorld {
   public worldToScreenCoordinates(point: IPoint): IPoint {
     return point.movedBy(
       config.SCREEN_WIDTH / 2 - this._cameraPoint.x,
-      config.SCREEN_HEIGHT / 2 - this._cameraPoint.y
+      config.SCREEN_HEIGHT / 2 - this._cameraPoint.y,
     );
   }
 
@@ -592,7 +603,7 @@ export class World implements IWorld {
     for (let i = 0; i <= 9; i++) {
       if (keys.has(`Digit${i}`)) {
         const playerShop = this.shops.find(
-          (shop) => shop.hasPlayer() && shop.isModalOpen
+          (shop) => shop.hasPlayer() && shop.isModalOpen,
         );
 
         if (playerShop) {
@@ -600,8 +611,8 @@ export class World implements IWorld {
           const key =
             Number(
               Object.keys(inventory).filter(
-                (key) => inventory[Number(key)].quantity > 0
-              )[i == 0 ? 9 : i - 1]
+                (key) => inventory[Number(key)].quantity > 0,
+              )[i == 0 ? 9 : i - 1],
             ) ?? null;
 
           purchaseItemKey[key] = true;
@@ -655,7 +666,7 @@ export class World implements IWorld {
 
   handleShoppingAttempt(itemId: config.InventoryItemID): void {
     const isWeapon = Object.values(
-      config.WEAPON_INVENTORY_ID_BY_WEAPON_TYPE
+      config.WEAPON_INVENTORY_ID_BY_WEAPON_TYPE,
     ).includes(itemId);
 
     if (isWeapon && this._player?.hasInventoryItem(itemId)) {
@@ -664,7 +675,7 @@ export class World implements IWorld {
     }
 
     const playerShop = this.shops.find(
-      (shop) => shop.hasPlayer() && shop.isModalOpen
+      (shop) => shop.hasPlayer() && shop.isModalOpen,
     );
 
     if (playerShop && playerShop.inventory[itemId]) {
@@ -683,12 +694,12 @@ export class World implements IWorld {
 
   applyGameStateDelta(
     changeset: GameStateDeltaMessage,
-    currentPlayerId: string
+    currentPlayerId: string,
   ): void {
     if (changeset.timestamp <= this._lastChangesetTimestamp) {
       console.log(
         `Ignoring out-of-order changeset. Last: ${this._lastChangesetTimestamp}, Received: ${changeset.timestamp}`,
-        changeset
+        changeset,
       );
       return;
     }
@@ -708,7 +719,7 @@ export class World implements IWorld {
     }
 
     for (const [updatedPlayerId, updatedPlayer] of Object.entries(
-      changeset.updatedPlayers
+      changeset.updatedPlayers,
     )) {
       if (updatedPlayerId === currentPlayerId) {
         if (updatedPlayer.lives?.isAlive && !this._player?.isAlive()) {
@@ -742,8 +753,8 @@ export class World implements IWorld {
             addedWall.width,
             addedWall.height,
             addedWall.orientation as "horizontal" | "vertical",
-            addedWall.id
-          )
+            addedWall.id,
+          ),
         );
       }
     }
@@ -765,7 +776,7 @@ export class World implements IWorld {
     }
 
     for (const [updatedEnemyId, updatedEnemy] of Object.entries(
-      changeset.updatedEnemies
+      changeset.updatedEnemies,
     )) {
       const enemy = this._enemies.find((e) => e.id === updatedEnemyId);
       if (enemy) {
@@ -789,7 +800,7 @@ export class World implements IWorld {
     }
 
     for (const [updatedBonusId, updatedBonus] of Object.entries(
-      changeset.updatedBonuses
+      changeset.updatedBonuses,
     )) {
       if (updatedBonus.pickedUpBy) {
         this._bonuses = this._bonuses.filter((b) => b.id !== updatedBonusId);
@@ -814,13 +825,13 @@ export class World implements IWorld {
         this._player.bulletsLeft === 0 &&
         !this._bulletManager.hasSoundPlayedForBullet(addedBullet) &&
         !config.WEAPON_TYPES_LOADED_DIRECTLY_FROM_INVENTORY.includes(
-          addedBullet.weaponType as config.WeaponType
+          addedBullet.weaponType as config.WeaponType,
         )
       ) {
         // Player has just recharged their bullets
         AudioManager.getInstance().playSound(
           config.SOUNDS.PLAYER_BULLET_RECHARGE,
-          { volume: 0.5 }
+          { volume: 0.5 },
         );
       }
 
@@ -828,7 +839,7 @@ export class World implements IWorld {
     }
 
     for (const [bulletId, bulletData] of Object.entries(
-      changeset.updatedBullets
+      changeset.updatedBullets,
     )) {
       const existingBullet = this._bulletManager.getBulletById(bulletId);
       if (existingBullet) {
@@ -845,13 +856,13 @@ export class World implements IWorld {
           this._player.bulletsLeft === 0 &&
           !this._bulletManager.hasSoundPlayedForBullet(bulletData) &&
           !config.WEAPON_TYPES_LOADED_DIRECTLY_FROM_INVENTORY.includes(
-            bulletData.weaponType as config.WeaponType
+            bulletData.weaponType as config.WeaponType,
           )
         ) {
           // Player has just recharged their bullets
           AudioManager.getInstance().playSound(
             config.SOUNDS.PLAYER_BULLET_RECHARGE,
-            { volume: 0.5 }
+            { volume: 0.5 },
           );
         }
       }
@@ -867,7 +878,7 @@ export class World implements IWorld {
     }
 
     for (const [updatedShopId, updatedShop] of Object.entries(
-      changeset.updatedShops
+      changeset.updatedShops,
     )) {
       const shop = this._shops.find((s) => s.id === updatedShopId);
       if (shop) {
@@ -890,16 +901,36 @@ export class World implements IWorld {
     }
 
     for (const [id, coordinates] of Object.entries(
-      changeset.updatedOtherPlayerPositions
+      changeset.updatedOtherPlayerPositions,
     )) {
       this._otherPlayerCoordinates[id] = new Point2D(
         coordinates.x,
-        coordinates.y
+        coordinates.y,
       );
     }
 
     for (const id of changeset.removedOtherPlayerPositions) {
       delete this._otherPlayerCoordinates[id];
+    }
+
+    for (const addedRayData of Object.values(changeset.addedRays)) {
+      const ray = this._rays.find((r) => r.id === addedRayData.id);
+      if (!ray) {
+        this._rays.push(new this._Ray(this, addedRayData));
+      }
+    }
+
+    for (const [updatedRayId, updatedRay] of Object.entries(
+      changeset.updatedRays,
+    )) {
+      const ray = this._rays.find((r) => r.id === updatedRayId);
+      if (ray) {
+        ray.applyFromGameStateDelta(updatedRay);
+      }
+    }
+
+    for (const removedRayId of changeset.removedRays) {
+      this._rays = this._rays.filter((r) => r.id !== removedRayId);
     }
   }
 
