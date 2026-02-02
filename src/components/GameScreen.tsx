@@ -42,6 +42,7 @@ export const GameScreen: React.FC = () => {
           setIsMuted(false);
         }
       }
+      e.target.blur();
     },
     [audioManager],
   );

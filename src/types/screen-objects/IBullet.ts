@@ -13,6 +13,7 @@ export interface IBullet extends IScreenObject, IDrawable {
   isEnemy: boolean;
   ownerId?: string;
   weaponType: config.WeaponType;
+  batchId?: string;
 }
 
 export interface IBulletFactory {
@@ -23,7 +24,8 @@ export interface IBulletFactory {
     isEnemy: boolean,
     enemyType: config.EnemyType,
     ownerId?: string,
-    id?: string
+    id?: string,
+    batchId?: string,
   ): IBullet;
 
   fromGameState(world: IWorld, bulletData: BulletMessage): IBullet;

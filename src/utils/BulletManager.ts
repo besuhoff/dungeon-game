@@ -5,6 +5,7 @@ import { IBulletManager } from "../types/screen-objects/IBulletManager";
 import { AudioManager } from "./AudioManager";
 import { Bullet as BulletMessage } from "../types/socketEvents";
 import { Bullet } from "../entities/Bullet";
+import { closestPointOnLineSegment } from "./closestPointOnLineSegment";
 
 export class BulletManager implements IBulletManager {
   private _bullets: Map<string, IBullet> = new Map();
@@ -17,43 +18,57 @@ export class BulletManager implements IBulletManager {
 
   constructor(private world: IWorld) {}
 
-  getBulletCacheKey(bulletData: BulletMessage): string {
-    let cacheKey = `${bulletData.id}`;
-
-    if (bulletData.weaponType === "shotgun" && !bulletData.isActive) {
-      cacheKey = `${bulletData.ownerId}-${bulletData.deletedAt}`;
+  getBulletCacheKey(
+    bulletId: string,
+    batchId: string,
+    weaponType: string,
+  ): string {
+    if (weaponType === "shotgun") {
+      return batchId;
     }
-    return cacheKey;
+    return bulletId;
   }
 
   applyFromGameState(bulletData: BulletMessage, remove?: boolean): void {
     const bullet = Bullet.fromGameState(this.world, bulletData);
+    const playerPosition = this.world.player!.getPosition();
 
     if (remove && bullet.active) {
       this._bullets.delete(bullet.id);
       return;
     }
 
-    let bulletPosition = bullet.getPosition();
+    let soundPosition = bullet.getPosition().clone();
     if (bullet.weaponType === "railgun") {
-      bulletPosition = bulletPosition
-        .clone()
-        .moveBy(bullet.velocity.x, bullet.velocity.y);
+      // Find closest point on the ray to the player for sound position
+      const rayEnd = bullet
+        .getPosition()
+        .movedBy(bullet.velocity.x, bullet.velocity.y);
+
+      const [x, y] = closestPointOnLineSegment(
+        soundPosition.x,
+        soundPosition.y,
+        rayEnd.x,
+        rayEnd.y,
+        playerPosition.x,
+        playerPosition.y,
+      );
+      soundPosition.setTo(x, y);
     }
 
     // Play sound
-    const distance = bulletPosition.distanceTo(
-      this.world.player!.getPosition(),
-    );
+    const distance = soundPosition.distanceTo(playerPosition);
     const maxDistance = config.SIGHT_RADIUS;
     const volume =
       distance >= maxDistance
         ? 0
-        : 1 -
-          Math.sqrt(distance) /
-            Math.sqrt(maxDistance); // Volume decreases with the square root of the distance
+        : 1 - Math.sqrt(distance) / Math.sqrt(maxDistance); // Volume decreases with the square root of the distance
 
-    const cacheKey = this.getBulletCacheKey(bulletData);
+    const cacheKey = this.getBulletCacheKey(
+      bullet.id,
+      bullet.batchId || "",
+      bullet.weaponType,
+    );
 
     // Avoid playing sound multiple times for shotgun pellets of the same shot
     if (bulletData.isJustSpawned && !this._bulletsSoundCache.has(cacheKey)) {
@@ -76,13 +91,13 @@ export class BulletManager implements IBulletManager {
       }
 
       if (bullet.weaponType === "rocket_launcher") {
-        if (!this._bulletsRemovedSoundCache.has(cacheKey)) {
+        if (!this._bulletsRemovedSoundCache.has(bullet.id)) {
           console.log("Playing sound for bullet at volume", volume);
           AudioManager.getInstance().playSound(config.SOUNDS.ROCKET_BLAST, {
             volume,
             offset: millisecondsPassed / 1000,
           });
-          this._bulletsRemovedSoundCache.add(cacheKey);
+          this._bulletsRemovedSoundCache.add(bullet.id);
         }
       }
     }
@@ -95,7 +110,11 @@ export class BulletManager implements IBulletManager {
   }
 
   hasSoundPlayedForBullet(bulletData: BulletMessage): boolean {
-    const cacheKey = this.getBulletCacheKey(bulletData);
+    const cacheKey = this.getBulletCacheKey(
+      bulletData.id,
+      bulletData.batchId || "",
+      bulletData.weaponType,
+    );
     return this._bulletsSoundCache.has(cacheKey);
   }
 
@@ -107,7 +126,13 @@ export class BulletManager implements IBulletManager {
         const millisecondsPassed = Math.max(0, Date.now() - bullet.deletedAt);
         if (millisecondsPassed >= lifetime) {
           this._bullets.delete(bullet.id);
-          this._bulletsSoundCache.delete(bullet.id);
+          this._bulletsSoundCache.delete(
+            this.getBulletCacheKey(
+              bullet.id,
+              bullet.batchId || "",
+              bullet.weaponType,
+            ),
+          );
           this._bulletsRemovedSoundCache.delete(bullet.id);
           return;
         }
