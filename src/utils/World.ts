@@ -822,6 +822,7 @@ export class World implements IWorld {
       if (
         addedBullet.ownerId === this._player?.id &&
         hadNoBullets &&
+        addedBullet.isJustSpawned &&
         this._player.bulletsLeft === 0 &&
         !this._bulletManager.hasSoundPlayedForBullet(addedBullet) &&
         !config.WEAPON_TYPES_LOADED_DIRECTLY_FROM_INVENTORY.includes(

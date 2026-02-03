@@ -44,14 +44,15 @@ export class Bullet extends ScreenObject implements IBullet {
     public readonly isEnemy: boolean,
     public readonly enemyType: config.EnemyType,
     public readonly ownerId?: string,
-    id?: string
+    id?: string,
+    public readonly batchId?: string,
   ) {
     super(point, config.BULLET_SIZE, config.BULLET_SIZE, id);
     this._speed = isEnemy
       ? config.ENEMY_BULLET_SPEED
       : config.PLAYER_BULLET_SPEED;
     this._velocity = Vector2D.fromAngle((rotation * Math.PI) / 180).multiply(
-      this._speed
+      this._speed,
     );
 
     const imageManager = ImageManager.getInstance();
@@ -82,7 +83,8 @@ export class Bullet extends ScreenObject implements IBullet {
       bulletData.isEnemy,
       bulletData.enemyType as config.EnemyType,
       bulletData.ownerId,
-      bulletData.id
+      bulletData.id,
+      bulletData.batchId,
     );
 
     bullet._weaponType = bulletData.weaponType as config.WeaponType;
@@ -94,7 +96,7 @@ export class Bullet extends ScreenObject implements IBullet {
     if (bulletData.velocity) {
       bullet._velocity = new Vector2D(
         bulletData.velocity.x,
-        bulletData.velocity.y
+        bulletData.velocity.y,
       );
     }
 
@@ -107,13 +109,18 @@ export class Bullet extends ScreenObject implements IBullet {
   draw(
     ctx: CanvasRenderingContext2D,
     _: CanvasRenderingContext2D,
-    millisecondsPassed?: number
+    millisecondsPassed?: number,
   ): void {
     if (
       this.world.gameOver ||
       (!this._active &&
         !["railgun", "rocket_launcher"].includes(this._weaponType))
     ) {
+      return;
+    }
+
+    if (this.weaponType === "shotgun") {
+      // Shotgun bullets are not drawn individually
       return;
     }
 
@@ -145,7 +152,7 @@ export class Bullet extends ScreenObject implements IBullet {
         0,
         endX,
         endY,
-        glowSize
+        glowSize,
       );
       gradient.addColorStop(0, bulletColor);
       gradient.addColorStop(1, "transparent");
@@ -169,7 +176,7 @@ export class Bullet extends ScreenObject implements IBullet {
         const totalDuration = config.ANIMATIONS.EXPLOSION.duration;
         const currentFrame = Math.floor(
           (millisecondsPassed / totalDuration) *
-            config.ANIMATIONS.EXPLOSION.frameCount
+            config.ANIMATIONS.EXPLOSION.frameCount,
         );
 
         if (currentFrame >= config.ANIMATIONS.EXPLOSION.frameCount) {
@@ -186,7 +193,7 @@ export class Bullet extends ScreenObject implements IBullet {
           -frameWidth / 2,
           -frameHeight / 2,
           frameWidth,
-          frameHeight
+          frameHeight,
         );
 
         ctx.restore();
@@ -204,7 +211,7 @@ export class Bullet extends ScreenObject implements IBullet {
         -textureWidth / 2,
         -textureHeight / 2,
         textureWidth,
-        textureHeight
+        textureHeight,
       );
       ctx.restore();
       return;
